@@ -1,0 +1,7 @@
+[console_scripts]
+fmask_sentinel2Stacked = fmask.cmdline.sentinel2Stacked:mainRoutine
+fmask_sentinel2makeAnglesImage = fmask.cmdline.sentinel2makeAnglesImage:mainRoutine
+fmask_usgsLandsatMakeAnglesImage = fmask.cmdline.usgsLandsatMakeAnglesImage:mainRoutine
+fmask_usgsLandsatSaturationMask = fmask.cmdline.usgsLandsatSaturationMask:mainRoutine
+fmask_usgsLandsatStacked = fmask.cmdline.usgsLandsatStacked:mainRoutine
+fmask_usgsLandsatTOA = fmask.cmdline.usgsLandsatTOA:mainRoutine
