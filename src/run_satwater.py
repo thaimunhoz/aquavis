@@ -1,11 +1,5 @@
 from satwater import build_satwater
 
-select_sat = 'landsat'
-tile = '022_039'
-period_ini = '20230301'
-period_end = '20230310'
-output_dir = r'Z:\guser\tml\mypapers\hls_synthetic\HLS_package\usage_example\output_data'
-
 def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
 
     tiles_sentinel = r'satwater/auxfiles/tiles/MGRS_tiles.shp'
