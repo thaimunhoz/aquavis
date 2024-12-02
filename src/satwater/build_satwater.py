@@ -1,10 +1,14 @@
 import os
-from satwater import tiling
-from satwater import hlswater
-from satwater import visualization
-import satwater.atmcor.atm6s as atmcor
+from atmcor import atm6s as atmcor
+from tiling import tiles as tiling
+from hlswater import generate_hls as hlswater
+from visualization import plot_images as visualization
 
 class SatWater(object):
+
+    '''
+    Class to run the entire process of atmospheric correction, tiling, resampling, HLS water generation, and plotting.
+    '''
 
     def __init__(self, select_sat=None, params=None):
 

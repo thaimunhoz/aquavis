@@ -79,7 +79,6 @@ def apply_bandpass(input_img, outp_img):
         raster_arr = (raster_arr[0, :, :] - dict_bands[band_nm]['add'])/dict_bands[band_nm]['multi']
 
         dst_meta = src.meta.copy()
-        dst_meta['compress'] = 'lzw'
 
         with rasterio.open(outp_img, 'w', **dst_meta) as dst:
             dst.write(raster_arr, 1)

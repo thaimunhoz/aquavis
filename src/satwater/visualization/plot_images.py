@@ -98,5 +98,3 @@ def run(params):
             results = pool.starmap_async(run_plots, zip(n_path_hls, n_hlsscene, n_output_dir_png)).get()
             print(results)
             pool.close()
-
-

@@ -4,11 +4,20 @@ import os.path
 import rasterio
 import numpy as np
 import multiprocessing
-from satwater.utils import satwutils
+from src.satwater.utils import satwutils
 
 def convert_float_to_int16(input_raster, output_raster, scale_factor=10000, nodata=-9999):
 
-    # Open the input raster in read mode
+    '''
+    Convert a float raster to int16 by multiplying by a scale factor and setting nodata values.
+    Input:
+        input_raster: str, path to the input raster
+        output_raster: str, path to the output raster
+        scale_factor: int, scale factor to multiply the input raster by
+        nodata: int, nodata value to set in the output raster
+    Output:
+        None
+    '''
 
     with rasterio.open(input_raster, 'r') as src:
 
@@ -36,7 +45,12 @@ def convert_float_to_int16(input_raster, output_raster, scale_factor=10000, noda
 
 def get_scene_details(scene_path, sat='landsat'):
 
-    """Returns a dictionary of scene details for a given scene path"""
+    """
+    Returns a dictionary of scene details for a given scene path
+    Input:
+        scene_path: str, path to the scene
+        sat: str, satellite name (landsat or sentinel)
+    """
 
     if sat == 'sentinel':
 
@@ -58,6 +72,13 @@ def get_scene_details(scene_path, sat='landsat'):
     return date_time
 
 def gen_hls(scene_path, params):
+
+    '''
+    Generate HLS products from a given scene
+    Input:
+        scene_path: str, path to the scene
+        params: dict, parameters for the HLS generation
+    '''
 
     date_time = get_scene_details(scene_path, params["sat"])
     out_dir_hls = fr"{params['output_dir_hls']}\HLS.T{params['sen_tile_target']}.{date_time}.{params['ncode']}.v1.0"
@@ -82,8 +103,11 @@ def gen_hls(scene_path, params):
 
 def run(params):
 
-    """Runs a given set of parameters to initiate a selection process for satellite data.
-    The 'select_sat' parameter defines the satellite to select (defaults to 'landsat')"""
+    """
+    Runs a given set of parameters to initiate a selection process for satellite data.
+    The 'select_sat' parameter defines the satellite to select (defaults to 'landsat')
+    """
+
     sat = params['aux_info']['sat_name']
 
     if sat == 'landsat':

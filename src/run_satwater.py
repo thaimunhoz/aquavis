@@ -2,6 +2,18 @@ from satwater import build_satwater
 
 def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
 
+    '''
+    Run the SatWater processing chain.
+    Input:
+        select_sat (str): Satellite to process (landsat or sentinel)
+        tile (str): Tile name
+        period_ini (str): Initial date in the format 'YYYYMMDD'
+        period_end (str): End date in the format 'YYYYMMDD'
+        output_dir (str): Output directory
+    Output:
+        None
+    '''
+
     tiles_sentinel = r'satwater/auxfiles/tiles/MGRS_tiles.shp'
     tiles_landsat = r'satwater/auxfiles/tiles/ms_landsat.shp'
 

@@ -2,27 +2,22 @@ import os
 import glob
 import os.path
 import multiprocessing
-from satwater.utils import satwutils
-
-#sys.path.append(r'Z:\projects\funded\nasarid\sat-water')
+from src.satwater.utils import satwutils
 
 def gen_tiles(landsat_scene, params):
 
+    '''
+    Generate the tiles for the Landsat scene. The Landsat bands are reprojected, resampled, and clipped to the Sentinel tile (MGRS).
+    For each Landsat tile, we look for all intersections with Sentinel tiles and generate the corresponding tiles.
+    '''
+
     landsat_bands = ['B2', 'B3', 'B4', 'B5']
 
-    # Tiles do Sentinel-2 que interceptam o tile do Landsat. Para cada Sentinel tile, a gente precisa clipar e reprojetar a imagem do Landsat.
     sen_tile = params['sen_tiles_target']
 
     landsat_scene_all_bands = [f for f in glob.glob(os.path.join(landsat_scene, '*')) if any(band in f for band in landsat_bands)]
 
     for sen_tile_target in sen_tile['Name']: # Loop through the Sentinel tiles
-
-        # First we need to check if we have the image tile in our database
-        #sen_tile_path = glob.glob(fr'{params["sentinel"]["input_dir"]}\{sen_tile_target}')
-        #if sen_tile_path == []:
-        #    continue
-
-        #sen_tile_ref = glob.glob(fr'{sen_tile_path[0]}\{os.listdir(sen_tile_path[0])[0]}\**\GRANULE\**\IMG_DATA\*_B04*.jp2')
 
         sen_gdf = sen_tile[sen_tile['Name'] == sen_tile_target]
 
@@ -37,17 +32,10 @@ def gen_tiles(landsat_scene, params):
             if os.path.exists(out_band):
                 continue
 
-            landsat_epsg_code = satwutils.raster2meta(landsat_band)
-
             imgtemp = fr"{params['output_dir']}\temp\temp_{os.path.basename(landsat_band)}"
             satwutils.reproject(landsat_band, imgtemp, sen2_epsg_code)  # reprojecting the landsat to sentienl projection
 
-            #imgtemp2 = fr"{params['output_dir']}\temp\temp2_{os.path.basename(landsat_band)}"
-            #satwutils.resampling_landsat(imgtemp, imgtemp2, sen_tile_ref[0])
-
             satwutils.cut_images_res(imgtemp, sen_gdf, out_band, 30)
-
-            #os.remove(imgtemp)
 
 def run(params):
 

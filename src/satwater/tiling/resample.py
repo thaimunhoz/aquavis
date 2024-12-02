@@ -3,10 +3,14 @@ import glob
 import os.path
 import multiprocessing
 
-from satwater.utils import satwutils
-from satwater.tiling import bandpass
+from src.satwater.utils import satwutils
+import bandpass
 
 def gen_resample(sentinel_scene, params):
+
+    '''
+    Resample the Sentinel-2 bands to the Landsat spatial resolution.
+    '''
 
     sentinel_bands = ['B02', 'B03', 'B04', 'B8A']
 

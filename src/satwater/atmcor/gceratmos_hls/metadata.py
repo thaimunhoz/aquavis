@@ -3,9 +3,9 @@ import glob
 import calendar
 import numpy as np
 import pandas as pd
-import satwater.atmcor.gceratmos_sentinel.toolbox as tool
+import toolbox as tool
 from datetime import datetime, timedelta
-from satwater.atmcor.gceratmos_sentinel.atm.coefficient import MCDExtractWindow
+from atm.coefficient import MCDExtractWindow
 
 class Metadata_MSI_S2:
 
