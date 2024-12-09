@@ -68,8 +68,11 @@ def reproject(src_file, dst_file, epsg_num):
 
     # Reproject to the target CRS
     reprojected_data = data.rio.reproject(f"EPSG:{epsg_num}", resampling=Resampling.cubic)
-
-    reprojected_data.rio.to_raster(dst_file)
+    try:
+        reprojected_data.rio.to_raster(dst_file)
+    except:
+        os.remove(dst_file)
+        reprojected_data.rio.to_raster(dst_file)
 
 def cut_images_res(path_original, shapefile_tile, path_output, spatialres):
 

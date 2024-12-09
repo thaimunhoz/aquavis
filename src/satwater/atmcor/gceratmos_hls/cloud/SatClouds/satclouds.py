@@ -68,13 +68,3 @@ class Satcloud:
                           ">> OLCI_S3\n"
                           ">> MSI_S2\n"
                           ">> OLI_L8/9", UserWarning)
-
-
-#path_img=r'C:\Users\tml411\Downloads\teste\S2A_MSIL1C_20230915T073621_N0509_R092_T38TQQ_20230915T093826.SAFE'
-#sensor='MSI_S2'
-#dest=r"C:\Users\tml411\Downloads\teste\MASK_OUT"
-#fmask_env=r"C:\Users\tml411\AppData\Local\anaconda3\envs\fmask_env\python"
-
-#a = Satcloud(path_img, sensor, dest, fmask_env)
-#a.run()
-

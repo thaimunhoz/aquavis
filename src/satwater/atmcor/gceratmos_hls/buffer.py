@@ -66,7 +66,7 @@ class Buffer_OLCI_S3:
             """
             src_ds = gdal.Open(raster)
             srcband = src_ds.GetRasterBand(1)
-            dst_layername = 'data'
+            dst_layername = 'atm/data'
             drv = ogr.GetDriverByName("ESRI Shapefile")
             dst_ds = drv.CreateDataSource(dest + '/wmask.shp')
             sp_ref = osr.SpatialReference()
@@ -184,7 +184,7 @@ class Buffer_MSI_S2:
             """
             src_ds = gdal.Open(raster)
             srcband = src_ds.GetRasterBand(1)
-            dst_layername = 'data'
+            dst_layername = 'atm/data'
             drv = ogr.GetDriverByName("ESRI Shapefile")
             dst_ds = drv.CreateDataSource(dest + '/wmask.shp')
             sp_ref = osr.SpatialReference()

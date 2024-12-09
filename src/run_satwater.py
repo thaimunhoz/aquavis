@@ -1,4 +1,4 @@
-from satwater import build_satwater
+from src.satwater import build_satwater
 
 def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
 
@@ -14,8 +14,8 @@ def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
         None
     '''
 
-    tiles_sentinel = r'satwater/auxfiles/tiles/MGRS_tiles.shp'
-    tiles_landsat = r'satwater/auxfiles/tiles/ms_landsat.shp'
+    tiles_sentinel = r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\MGRS_tiles.shp'
+    tiles_landsat = r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\ms_landsat.shp'
 
     n_cores=12
 

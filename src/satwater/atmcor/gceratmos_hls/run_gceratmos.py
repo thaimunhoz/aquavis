@@ -1,4 +1,5 @@
-from gceratmos import Gceratmos
+from src.satwater.atmcor.gceratmos_hls.gceratmos import Gceratmos
+from src.satwater.atmcor.gceratmos_hls.cloud.SatClouds.satclouds import Satcloud
 
 def run_gceratmos(path_main, path_dest, satellite, path_roi=None):
 
@@ -14,8 +15,14 @@ def run_gceratmos(path_main, path_dest, satellite, path_roi=None):
         sat = 'OLI_L8/9'
 
     mode = None
+    fmask_env = r'C:\Users\tml411\AppData\Local\anaconda3\envs\fmask_env\python'
 
     gceratmos_r = Gceratmos(path_main, path_dest, networkdrive_letter, sat, mode)
     gceratmos_r.run()
 
     print(f'GCER Atmos correction applied.')
+
+    cloud_mask = Satcloud(path_main, sat, path_dest, fmask_env)
+    cloud_mask.run()
+
+    print(f'Cloud mask applied.')

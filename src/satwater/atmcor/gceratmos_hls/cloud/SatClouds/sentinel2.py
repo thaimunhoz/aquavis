@@ -29,9 +29,11 @@ class Sentinel2:
         self.PIXEL_SIZE = 60
 
     def run(self):
+
         """
         Runs and applies the cloud mask derived from Fmask-algorithm and S2X_MSIL1C_*.SAFE.
         """
+
         # Creates a new directory:
         pathxmain = self.newdirectory(self.dest, 'SatClouds')
         pathxtempdir = self.newdirectory(pathxmain, 'temp')
@@ -43,9 +45,10 @@ class Sentinel2:
         cmd = rf"{fmask_env} {fmask_mode} --shadowbufferdistance {self.SHADOW_BUFFER_DISTANCE} --cloudbufferdistance " \
               rf"{self.CLOUD_BUFFER_DISTANCE} --pixsize {self.PIXEL_SIZE} -e {pathxtempdir} -o {pathxtempdir + '/cloud.tif'} --safedir {self.path_img} --tempdir {pathxtempdir}"
         os.system(cmd)
+
         # Resamples the
         # Applies and filters the cloud mask:
-        arr60 = self.loadarray(pathxtempdir + '/cloud.tif')
+        '''arr60 = self.loadarray(pathxtempdir + '/cloud.tif')
         bit_values = {
             0: 'Null',
             1: 'Clear land',
@@ -84,7 +87,7 @@ class Sentinel2:
                 arr = self.loadarray(path)
                 masked = arr * cloud_mask * shadow_mask
                 masked_out = np.where(masked == 0, -9999, masked)
-                self.export(masked_out, path[-30:], path, pathxmain)
+                self.export(masked_out, path[-30:], path, pathxmain)'''
         # Removes the tempdir:
         #shutil.rmtree(pathxtempdir)
 

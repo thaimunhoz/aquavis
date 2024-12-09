@@ -1,7 +1,9 @@
 import os
+import ast
 import datetime
+import pandas as pd
 from multiprocessing import Pool
-import gceratmos_hls.run_gceratmos as gceratmos_sentinel
+import src.satwater.atmcor.gceratmos_hls.run_gceratmos as gceratmos_sentinel
 
 def checkdaterange(all_imgs, dates_period, select_sat='landsat'):
 
@@ -42,22 +44,36 @@ def run(select_sat, params):
     The 'select_sat' parameter defines the satellite to select (defaults to 'landsat')
     """
 
-    tiles = params[select_sat]['tiles']
+    tiles = [params[select_sat]['tiles']]
+
+    sentinel_tiles_names = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\sentinel_landsat_intersections.csv')
 
     for tile in tiles:
 
         if select_sat == 'landsat':
 
-            src_dir_tile = fr'{params[select_sat]["input_dir"]}\{tile}\{params[select_sat]["generation"]}'
-            all_imgs = [fr'{src_dir_tile}\{i}' for i in os.listdir(src_dir_tile)]
+            sent_tile = sentinel_tiles_names[sentinel_tiles_names['sentinel_tile'] == tile]
+
+            landsat_tiles_list = ast.literal_eval(sent_tile["landsat_tiles"].values[0])
+
+            pathrows = [f"{int(tile.split('_')[0]):03d}_{int(tile.split('_')[1]):03d}" for tile in landsat_tiles_list]
+
+            imgs_aux = []
+
+            for landsat_tile in pathrows:
+
+                src_dir_tile = fr'{params[select_sat]["input_dir"]}\{landsat_tile}\{params[select_sat]["generation"]}'
+                imgs_aux.append([fr'{src_dir_tile}\{i}' for i in os.listdir(src_dir_tile)])
+
+            all_imgs_aux = [item for sublist in imgs_aux for item in sublist]
 
         else:
 
             src_dir_tile = fr'{params[select_sat]["input_dir"]}\{tile}'
-            all_imgs = [fr'{src_dir_tile}\{i}\{os.listdir(os.path.join(src_dir_tile, i))[0]}' for i in os.listdir(src_dir_tile)]
+            all_imgs_aux = [fr'{src_dir_tile}\{i}\{os.listdir(os.path.join(src_dir_tile, i))[0]}' for i in os.listdir(src_dir_tile)]
 
         # Check the period and target date
-        all_imgs = checkdaterange(all_imgs, params['aux_info']['period'], select_sat=select_sat)
+        all_imgs = checkdaterange(all_imgs_aux, params['aux_info']['period'], select_sat=select_sat)
 
         if not all_imgs:
 

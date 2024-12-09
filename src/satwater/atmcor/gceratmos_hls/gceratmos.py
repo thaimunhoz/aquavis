@@ -5,11 +5,11 @@ import warnings
 import rasterio
 import numpy as np
 
-import toolbox as tool
-from metadata import Metadata_MSI_S2
-from metadata import Metadata_OLI_L89
-from atm.atmosphere import Atmosphere
-from atm.correction import Correction
+from src.satwater.atmcor.gceratmos_hls import toolbox as tool
+from src.satwater.atmcor.gceratmos_hls.metadata import Metadata_MSI_S2
+from src.satwater.atmcor.gceratmos_hls.metadata import Metadata_OLI_L89
+from src.satwater.atmcor.gceratmos_hls.atm.atmosphere import Atmosphere
+from src.satwater.atmcor.gceratmos_hls.atm.correction import Correction
 
 class Gceratmos:
 
@@ -64,7 +64,7 @@ class Gceratmos:
                 arr = tool.loadarray(tempdir + '/' + band[0:-4] + '.TIF')
                 corr = Correction(meta, atmos_param, arr, index)
                 corr.run()
-                arr_c = np.where(corr.arr_sr < -1, -9999, corr.arr_sr) # NaN value.
+                arr_c = np.where(corr.arr_sr < 0, -9999, corr.arr_sr) # NaN value.
 
                 tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.TIF', dest)
 
@@ -98,7 +98,7 @@ class Gceratmos:
                 corr = Correction(meta, atmos_param, arr, index)
                 corr.run()
 
-                arr_c = np.where(corr.arr_sr < -1, -9999, corr.arr_sr) # NaN value
+                arr_c = np.where(corr.arr_sr < 0, -9999, corr.arr_sr) # NaN value
 
                 out_meta.update({"driver": "GTiff",
                                  "height": arr_c.shape[0],

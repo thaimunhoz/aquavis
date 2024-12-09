@@ -37,9 +37,10 @@ class Landsat89:
         cmd = rf"{self.fmask_env} {fmask_mode} --shadowbufferdistance {self.SHADOW_BUFFER_DISTANCE} --cloudbufferdistance " \
               rf"{self.CLOUD_BUFFER_DISTANCE} -e {pathxtempdir} -o {pathxtempdir + '/cloud.tif'} --scenedir {self.path_img} --tempdir {pathxtempdir}"
         os.system(cmd)
+
         # Resamples the
         # Applies and filters the cloud mask:
-        arr30 = self.loadarray(pathxtempdir + '/cloud.tif')
+        '''arr30 = self.loadarray(pathxtempdir + '/cloud.tif')
         bit_values = {
             0: 'Null',
             1: 'Clear land',
@@ -67,7 +68,7 @@ class Landsat89:
                 arr = self.loadarray(path)
                 masked = arr * cloud_mask * shadow_mask
                 masked_out = np.where(masked == 0, -9999, masked)
-                self.export(masked_out, path[-43:], path, pathxmain)
+                self.export(masked_out, path[-43:], path, pathxmain)'''
         # Removes the tempdir:
         shutil.rmtree(pathxtempdir)
 

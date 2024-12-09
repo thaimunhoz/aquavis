@@ -4,7 +4,7 @@ import os.path
 import multiprocessing
 
 from src.satwater.utils import satwutils
-import bandpass
+from src.satwater.tiling import bandpass as bandpass
 
 def gen_resample(sentinel_scene, params):
 

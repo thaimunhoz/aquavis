@@ -1,8 +1,9 @@
 import os
-from atmcor import atm6s as atmcor
-from tiling import tiles as tiling
-from hlswater import generate_hls as hlswater
-from visualization import plot_images as visualization
+from src.satwater.atmcor import atm6s as atmcor
+from src.satwater.tiling import tiles as tiling
+from src.satwater.tiling import resample as resample
+from .hlswater import generate_hls as hlswater
+from .visualization import plot_images as visualization
 
 class SatWater(object):
 
@@ -26,14 +27,14 @@ class SatWater(object):
 
     def run_tiling(self):
 
-        tiling.tiles.run(self.params)
+        tiling.run(self.select_sat, self.params)
 
     def run_resample(self):
 
-        tiling.resample.run(self.params)
+        resample.run(self.params)
 
     def run_hlswater(self):
-        hlswater.generate_hls.run(self.params)
+        hlswater.run(self.params)
 
     def run_plot(self):
-        visualization.plot_images.run(self.params)
+        visualization.run(self.params)
