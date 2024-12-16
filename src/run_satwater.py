@@ -1,6 +1,7 @@
+import logging
 from src.satwater import build_satwater
 
-def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
+def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, output_dir: str,) -> None:
 
     '''
     Run the SatWater processing chain.
@@ -17,44 +18,56 @@ def run_satwater(select_sat, tile, period_ini, period_end, output_dir):
     tiles_sentinel = r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\MGRS_tiles.shp'
     tiles_landsat = r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\ms_landsat.shp'
 
+    # Validate inputs
+    if select_sat not in {"landsat", "sentinel"}:
+        raise ValueError(f"Invalid satellite selected: {select_sat}. Choose 'landsat' or 'sentinel'.")
+
+    if len(period_ini) != 8 or len(period_end) != 8:
+        raise ValueError("Dates must be in the format 'YYYYMMDD'.")
+
     n_cores=12
 
-    params = {}
+    # Parameters setup
+    params = {
+        "aux_info": {
+            "period": (period_ini, period_end),
+            "n_cores": n_cores,
+            "sat_name": select_sat,
+        },
+        "sentinel": {
+            "input_dir": r"Z:\dbcenter\images\sentinel\scenes\level_toa",
+            "tiles_shp": tiles_sentinel,
+        },
+        "landsat": {
+            "input_dir": r"Z:\dbcenter\images\landsat\scenes\level_toa",
+            "generation": "L89",
+            "tiles_shp": tiles_landsat,
+        },
+        "output_dir": output_dir,
+    }
 
-    params['aux_info'] = {}
-    params['aux_info']['period'] = (period_ini, period_end)
-    params['aux_info']['n_cores'] = n_cores
-    params['aux_info']['sat_name'] = select_sat
+    params[select_sat]["tiles"] = tile
 
-    params['sentinel'] = {}
-    params['sentinel']['input_dir'] = r'Z:\dbcenter\images\sentinel\scenes\level_toa'
-    params['sentinel']['tiles_shp'] = tiles_sentinel
+    # Initialize SatWater object
+    try:
+        SatWater_i = build_satwater.SatWater(select_sat, params)
+    except Exception as e:
+        logging.error(f"Failed to initialize SatWater: {e}")
+        raise
 
-    params['landsat'] = {}
-    params['landsat']['input_dir'] = r'Z:\dbcenter\images\landsat\scenes\level_toa'
-    params['landsat']['generation'] = 'L89'
-    params['landsat']['tiles_shp'] = tiles_landsat
+    # Run processing steps
+    SatWater_i.run_atmcor() # 1. Atmospheric correction
 
-    params[select_sat]['tiles'] = tile
-    params['output_dir'] = output_dir
+    if select_sat == "landsat":
+        SatWater_i.run_tiling() # 2. Tiling for Landsat
 
-    SatWater_i = build_satwater.SatWater(select_sat, params)
+    elif select_sat == "sentinel":
+        SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
 
-    # 1. Run atmospheric correction
-    SatWater_i.run_atmcor()
+    SatWater_i.run_glint() # 4. Glint correction
 
-    # 2. Run tiling - Landsat images are reprojected, resampled, and clipped to the sentinel tile (MGRS)
-    if select_sat == 'landsat':
-        SatWater_i.run_tiling()
+    SatWater_i.run_hlswater() # 5. HLS water generation
 
-    # 3. Run resampling - Sentinel images are resampled to the Landsat spatial resolution (30m)
-    if select_sat == 'sentinel':
-        SatWater_i.run_resample()
+    SatWater_i.run_plot() # 6. Plotting
 
-    # 4. Create the final HLS synthetic image
-    SatWater_i.run_hlswater()
-
-    # 5. Save true color composition
-    SatWater_i.run_plot()
-
-    print('Process finished.')
+    logging.info("Process finished successfully.")

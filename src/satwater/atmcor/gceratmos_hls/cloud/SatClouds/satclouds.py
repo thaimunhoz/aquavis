@@ -14,8 +14,6 @@ and quality flag file (Sentinel-3/OLCI). To run this package are requested:
 import subprocess
 import warnings
 
-#from sentinel3 import Sentinel3
-
 class Satcloud:
 
     def __init__(self, path_img, sensor, dest, fmask_env):
@@ -27,20 +25,14 @@ class Satcloud:
 
         self.SENTINEL3 = 'OLCI_S3'
         self.SENTINEL2 = 'MSI_S2'
-        self.LANDSAT89 = 'OLI_L89'
+        self.LANDSAT89 = 'OLI_L8/9'
         self.ENVNAME_FMASK = 'fmask_env' # conda environment name
         self.SCRIPTS2 = r'C:\FMASK\SatClouds\sentinel2.py' # script path
-        self.SCRIPTL89 = 'landsat89.py' # script path
+        self.SCRIPTL89 = r'C:\FMASK\SatClouds\landsat89.py' # script path
 
     def run(self):
 
-        if self.sensor == self.SENTINEL3:
-
-            #sentinel3 = Sentinel3(self.path_img, self.dest)
-            #sentinel3.run()
-            pass
-
-        elif self.sensor == self.SENTINEL2:
+        if self.sensor == self.SENTINEL2:
 
             # The Sentinel-2 procedure is based on fmask-algorithm using an external conda environment.
             # Here, the 'fmask_env' is executed by command line:

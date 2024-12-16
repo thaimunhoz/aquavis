@@ -23,6 +23,7 @@ def convert_float_to_int16(input_raster, output_raster, scale_factor=10000, noda
 
         # Read the input raster as a float array
         arr = src.read(1).astype('float32')
+        arr[arr < 0] = np.nan
 
         # Multiply the array by 10000
         arr *= scale_factor
@@ -67,7 +68,7 @@ def get_scene_details(scene_path, sat='landsat'):
         ss = os.path.basename(img).split("_")[7]
 
         date_time = scene_name.split('_')[3]
-        date_time = f"{date_time}T{hh}{mm}{ss}"
+        #date_time = f"{date_time}T{hh}{mm}{ss}"
 
     return date_time
 
@@ -80,11 +81,14 @@ def gen_hls(scene_path, params):
         params: dict, parameters for the HLS generation
     '''
 
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+
     date_time = get_scene_details(scene_path, params["sat"])
-    out_dir_hls = fr"{params['output_dir_hls']}\HLS.T{params['sen_tile_target']}.{date_time}.{params['ncode']}.v1.0"
+    out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
     os.makedirs(out_dir_hls, exist_ok=True)
 
     scene_all_bands = glob.glob(f"{scene_path}\**.tif")
+    scene_all_bands = sorted(scene_all_bands, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf')))
 
     for file_bandi in scene_all_bands:
 
@@ -92,9 +96,10 @@ def gen_hls(scene_path, params):
 
         # Fix band names:
         if band_nmi == 'B8A': band_nmi = 'B05'
+
         band_nmi = satwutils.fix_band_name(band_nmi, params['aux_info']['sat_name'])
 
-        basefilename = f'HLS.T{params["sen_tile_target"]}.{date_time}.{params["ncode"]}.v1.0.{band_nmi}.tif'  ## HLS.T17SLU.2020209T155956.L30.v1.5.B01.tif
+        basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_v1.0_{band_nmi}.tif'  ## HLS.T17SLU.2020209T155956.L30.v1.5.B01.tif
 
         out_base_dir_nm = fr"{out_dir_hls}\{basefilename}"
 
@@ -111,9 +116,9 @@ def run(params):
     sat = params['aux_info']['sat_name']
 
     if sat == 'landsat':
-        sen_tiles = os.listdir(fr'{params["output_dir_tiling"]}\landsat')
+        sen_tiles = [params[sat]['tiles']]
     else:
-        sen_tiles = params['sentinel']['tiles']
+        sen_tiles = [params['sentinel']['tiles']]
 
     for sen_tile_target in sen_tiles:
 
@@ -125,11 +130,11 @@ def run(params):
 
         if sat == 'landsat':
             ncode = 'L30'
-            path_pr = fr'{params["output_dir"]}\tiling\landsat\{params["sen_tile_target"]}'
+            path_pr = fr'{params["output_dir"]}\glint\{params["sen_tile_target"]}\{sat}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
         else:
             ncode = 'S30'
-            path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\{params["sat"]}'
+            path_pr = fr'{params["output_dir"]}\glint\{params["sen_tile_target"]}\{sat}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
 
         params['ncode'] = ncode

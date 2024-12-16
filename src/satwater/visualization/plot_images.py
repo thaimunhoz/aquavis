@@ -31,8 +31,11 @@ def plot3B(image_b, image_g, image_r, output_png):
     arr_r = np.where(arr_r == -9999, np.nan, arr_r)
 
     try:
+
         stacked_array = np.stack((arr_b, arr_g, arr_r), axis=2)
+
     except:
+
         min_height = min(arr_b.shape[0], arr_g.shape[0], arr_r.shape[0])
         min_width = min(arr_b.shape[1], arr_g.shape[1], arr_r.shape[1])
 
@@ -73,15 +76,14 @@ def run_plots(path_hls, hlsscene, output_dir_png):
 
     plot3B(image_b, image_g, image_r, output_png)
 
-
 def run(params):
 
     sat = params['aux_info']['sat_name']
 
     if sat == 'landsat':
-        tiles = os.listdir(fr'{params["output_dir_tiling"]}\landsat')
+        tiles = [params[sat]['tiles']]
     else:
-        tiles = params['sentinel']['tiles']
+        tiles = [params['sentinel']['tiles']]
 
     for tile in tiles:
 

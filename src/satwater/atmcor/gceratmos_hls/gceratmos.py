@@ -77,7 +77,7 @@ class Gceratmos:
 
             dest = tool.newdirectory(self.path_dest, self.path_main[-40:])
 
-            tempdir = tool.newdirectory(dest, 'tempdir')
+            #tempdir = tool.newdirectory(dest, 'tempdir')
 
             # Metadata:
             meta = Metadata_OLI_L89(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.mode)
@@ -111,7 +111,7 @@ class Gceratmos:
                     dest.write(arr_c, 1)
 
             tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main[-40:]))
-            shutil.rmtree(tempdir)
+            #shutil.rmtree(tempdir)
 
         else:
 

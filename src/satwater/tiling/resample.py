@@ -1,65 +1,87 @@
 import os
 import glob
-import os.path
 import multiprocessing
-
 from src.satwater.utils import satwutils
-from src.satwater.tiling import bandpass as bandpass
+from src.satwater.tiling import bandpass
 
 def gen_resample(sentinel_scene, params):
 
-    '''
-    Resample the Sentinel-2 bands to the Landsat spatial resolution.
-    '''
+    """
+    Resamples Sentinel-2 bands to match Landsat spatial resolution and applies bandpass correction.
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A']
+    Args:
+        sentinel_scene (str): Path to the Sentinel-2 scene directory.
+        params (dict): Dictionary of parameters containing output directories, tile shapefiles, etc.
+    """
 
-    imgtemp_dir = fr"{params['output_dir']}\temp\temp_{os.path.basename(sentinel_scene)}"
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+    imgtemp_dir = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(sentinel_scene)}")
     satwutils.create_dir(imgtemp_dir)
 
-    sentinel_scene_all_bands = [f for f in glob.glob((fr'{sentinel_scene}\*.SAFE*\*_B*.tif')) if any(band in f for band in sentinel_bands)]
+    sentinel_scene_bands = [
+        f for f in glob.glob(os.path.join(sentinel_scene, '*.SAFE*', '*_B*.tif'))
+        if any(band in f for band in sentinel_bands)
+    ]
+    sentinel_scene_bands = sorted(
+        sentinel_scene_bands, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf'))
+    )
 
-    for sentinel_band in sentinel_scene_all_bands:
+    for sentinel_band in sentinel_scene_bands:
+        output_dir = os.path.join(params['output_dir_tiling'], 'sentinel', os.path.basename(os.path.dirname(sentinel_band)))
+        satwutils.create_dir(output_dir)
 
-        base_dir_nm = fr"{params['output_dir_tiling']}\sentinel\{os.path.basename(os.path.dirname(sentinel_band))}"
-        satwutils.create_dir(base_dir_nm)
-        out_scene = fr"{base_dir_nm}\{os.path.basename(sentinel_band)}"
+        output_path = os.path.join(output_dir, os.path.basename(sentinel_band))
 
-        if os.path.exists(out_scene):
+        if os.path.exists(output_path):
             continue
 
-        resampling_imgtemp = fr"{imgtemp_dir}\{os.path.basename(sentinel_band)}"
-        satwutils.cut_images_res(sentinel_band, params['sen_tile_target_shp'], resampling_imgtemp, 30)
+        temp_path = os.path.join(imgtemp_dir, os.path.basename(sentinel_band))
+        satwutils.cut_images_res(sentinel_band, params['sen_tile_target_shp'], temp_path, 30)
 
-        bandpass.apply_bandpass(resampling_imgtemp, out_scene)
+        bandpass.apply_bandpass(temp_path, output_path)
 
 def run(params):
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A']
+    """
+    Coordinates the resampling of Sentinel-2 bands for multiple tiles.
 
-    _imgtemp_dir = fr"{params['output_dir']}\temp"
-    os.makedirs(_imgtemp_dir, exist_ok=True)
+    Args:
+        params (dict): Dictionary of parameters containing output directories, tile shapefiles, and settings.
+    """
 
-    sen_tiles = params['sentinel']['tiles']
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+    temp_dir = os.path.join(params['output_dir'], 'temp')
+    os.makedirs(temp_dir, exist_ok=True)
 
-    for sen_tile_target in sen_tiles:
+    tiles = [params['sentinel']['tiles']]
 
-        # sentinel tile and projection are my reference
-        sentinel_img = [f for f in glob.glob((fr'{params["output_dir"]}\atmcor\sentinel\{sen_tile_target}\**\*.SAFE*\*_B*.tif')) if any(band in f for band in sentinel_bands)][0]
+    for tile in tiles:
+
+        # Locate the reference Sentinel-2 image
+        sentinel_images = [
+            f for f in glob.glob(
+                os.path.join(params['output_dir'], 'atmcor', 'sentinel', tile, '**', '*.SAFE*', '*_B*.tif')
+            )
+            if any(band in f for band in sentinel_bands)
+        ]
+        if not sentinel_images:
+            raise FileNotFoundError(f"No Sentinel-2 images found for tile: {tile}")
+
+        sentinel_img = sentinel_images[0]
+
+        # Set Sentinel tile projection and shapefile
         params['sen2_epsg_code'] = satwutils.raster2meta(sentinel_img)
-        params['sen_tile_target_shp'] = satwutils.get_tile_shp(sen_tile_target, params, params['sen2_epsg_code'])
+        params['sen_tile_target_shp'] = satwutils.get_tile_shp(tile, params, params['sen2_epsg_code'])
 
-        # Create the output directory if it does not exist
-        params['output_dir_tiling'] = fr'{params["output_dir"]}\tiling\{sen_tile_target}'
-        satwutils.create_dir(fr'{params["output_dir_tiling"]}\sentinel')
+        # Create output directories
+        params['output_dir_tiling'] = os.path.join(params['output_dir'], 'tiling', tile)
+        satwutils.create_dir(os.path.join(params['output_dir_tiling'], 'sentinel'))
 
-        # Landsat spatial resolution is my reference
-        sen2_scene_dir = fr'{params["output_dir"]}\atmcor\sentinel\{sen_tile_target}'
-        sentinel_scenes = [fr'{sen2_scene_dir}\{i}' for i in os.listdir(sen2_scene_dir)]
+        # Identify Sentinel-2 scenes for processing
+        sentinel_scene_dir = os.path.join(params['output_dir'], 'atmcor', 'sentinel', tile)
+        sentinel_scenes = [os.path.join(sentinel_scene_dir, scene) for scene in os.listdir(sentinel_scene_dir)]
 
-        n_params = [params] * len(sentinel_scenes)
-
+        # Run resampling in parallel
         with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-            results = pool.starmap_async(gen_resample, zip(sentinel_scenes, n_params)).get()
-            print(results)
-            pool.close()
+            results = pool.starmap_async(gen_resample, [(scene, params) for scene in sentinel_scenes]).get()
+            print(f"Processing results for tile {tile}: {results}")

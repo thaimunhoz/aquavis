@@ -1,92 +1,111 @@
 import os
 import ast
 import datetime
+import logging
 import pandas as pd
 from multiprocessing import Pool
-import src.satwater.atmcor.gceratmos_hls.run_gceratmos as gceratmos_sentinel
+from typing import List, Tuple
+from src.satwater.atmcor.gceratmos_hls.run_gceratmos import run_gceratmos
 
-def checkdaterange(all_imgs, dates_period, select_sat='landsat'):
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def check_date_range(all_imgs: List[str], dates_period: List[str], select_sat: str = 'landsat') -> List[str]:
 
     """
-    Check if images are within the given date range
-     Args:
-        all_imgs (list): List of images
-        dates_period (list): List of start and end dates in the format 'YYYYMMDD'
-        select_sat (str): Satellite type (default: 'landsat')
-     Returns:
-        list: List of images within the given date range
+    Filter images based on whether their dates fall within a given date range.
+
+    Args:
+        all_imgs (list): List of image file paths.
+        dates_period (list): Start and end dates in the format ['YYYYMMDD', 'YYYYMMDD'].
+        select_sat (str): Satellite type ('landsat' or 'sentinel').
+
+    Returns:
+        list: Filtered list of image file paths within the date range.
     """
 
-    all_imgs_within = []
+    filtered_imgs = []
+    start_date = datetime.datetime.strptime(dates_period[0], '%Y%m%d')
+    end_date = datetime.datetime.strptime(dates_period[1], '%Y%m%d')
+
     for img in all_imgs:
+        try:
+            # Extract the date string from the image filename
+            if select_sat == 'sentinel':
+                date_str = os.path.basename(img).split('_')[2].split('T')[0]
+            else:
+                date_str = os.path.basename(img).split('_')[3]
 
-        # Get the date string from the image name
-        if select_sat == 'sentinel':
-            date_str = os.path.basename(img).split('_')[2].split('T')[0]
-        else:
-            date_str = os.path.basename(img).split('_')[3]
+            # Convert date string to datetime object
+            img_date = datetime.datetime.strptime(date_str, '%Y%m%d')
 
-        # Convert the date string to datetime object
-        date_target = datetime.datetime.strptime(date_str, '%Y%m%d')
-        start_date = datetime.datetime.strptime(dates_period[0], '%Y%m%d')
-        end_date = datetime.datetime.strptime(dates_period[1], '%Y%m%d')
+            # Check if the date falls within the range
+            if start_date <= img_date <= end_date:
+                filtered_imgs.append(img)
+        except (IndexError, ValueError) as e:
+            logging.warning(f"Failed to process image {img}: {e}")
 
-        # Check if the date is within the given range
-        if start_date <= date_target <= end_date:
-            all_imgs_within.append(img)
+    return filtered_imgs
 
-    return all_imgs_within
-
-def run(select_sat, params):
+def run(select_sat: str, params: dict) -> None:
 
     """
-    Runs a given set of parameters to initiate a selection process for satellite data.
-    The 'select_sat' parameter defines the satellite to select (defaults to 'landsat')
+    Execute atmospheric correction processing for satellite data.
+
+    Args:
+        select_sat (str): Selected satellite type ('landsat' or 'sentinel').
+        params (dict): Dictionary of parameters including input/output directories, tile info, and processing settings.
     """
 
-    tiles = [params[select_sat]['tiles']]
-
-    sentinel_tiles_names = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\sentinel_landsat_intersections.csv')
+    tiles = [params[select_sat].get('tiles', [])]
+    sentinel_tile_mapping = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\sentinel_landsat_intersections.csv')
 
     for tile in tiles:
+        try:
+            if select_sat == 'landsat':
 
-        if select_sat == 'landsat':
+                # Match Sentinel tiles to Landsat tiles
+                sent_tile = sentinel_tile_mapping[sentinel_tile_mapping['sentinel_tile'] == tile]
+                landsat_tiles = ast.literal_eval(sent_tile["landsat_tiles"].values[0])
+                path_rows = [f"{int(lt.split('_')[0]):03d}_{int(lt.split('_')[1]):03d}" for lt in landsat_tiles]
 
-            sent_tile = sentinel_tiles_names[sentinel_tiles_names['sentinel_tile'] == tile]
+                # Collect image paths for Landsat tiles
+                all_imgs_aux = []
+                for path_row in path_rows:
+                    src_dir = os.path.join(params[select_sat]["input_dir"], path_row, params[select_sat]["generation"])
+                    if not os.path.exists(src_dir):
+                        logging.info(f"No images found for tile {path_row}. Skipping...")
+                        continue
 
-            landsat_tiles_list = ast.literal_eval(sent_tile["landsat_tiles"].values[0])
+                    all_imgs_aux.extend([os.path.join(src_dir, img) for img in os.listdir(src_dir)])
+            else:
 
-            pathrows = [f"{int(tile.split('_')[0]):03d}_{int(tile.split('_')[1]):03d}" for tile in landsat_tiles_list]
+                # Collect image paths for Sentinel tiles
+                src_dir = os.path.join(params[select_sat]["input_dir"], tile)
+                all_imgs_aux = [
+                    os.path.join(src_dir, sub_dir, os.listdir(os.path.join(src_dir, sub_dir))[0])
+                    for sub_dir in os.listdir(src_dir)
+                ]
 
-            imgs_aux = []
+            # Filter images by date range
+            all_imgs = check_date_range(all_imgs_aux, params['aux_info']['period'], select_sat)
+            if not all_imgs:
+                logging.info(f"No images found for tile {tile} in the specified date range.")
+                continue
 
-            for landsat_tile in pathrows:
+            # Prepare output paths
+            output_paths = [
+                os.path.join(params["output_dir"], "atmcor", select_sat, tile, os.path.splitext(os.path.basename(img))[0])
+                for img in all_imgs
+            ]
 
-                src_dir_tile = fr'{params[select_sat]["input_dir"]}\{landsat_tile}\{params[select_sat]["generation"]}'
-                imgs_aux.append([fr'{src_dir_tile}\{i}' for i in os.listdir(src_dir_tile)])
+            # Run atmospheric correction in parallel
+            with Pool(processes=params['aux_info']['n_cores']) as pool:
 
-            all_imgs_aux = [item for sublist in imgs_aux for item in sublist]
+                args = zip(all_imgs, output_paths, [select_sat] * len(all_imgs))
+                results = pool.starmap(run_gceratmos, args)
+                logging.info(f"Atmospheric correction completed for tile {tile}. Results: {results}")
 
-        else:
+        except Exception as e:
 
-            src_dir_tile = fr'{params[select_sat]["input_dir"]}\{tile}'
-            all_imgs_aux = [fr'{src_dir_tile}\{i}\{os.listdir(os.path.join(src_dir_tile, i))[0]}' for i in os.listdir(src_dir_tile)]
-
-        # Check the period and target date
-        all_imgs = checkdaterange(all_imgs_aux, params['aux_info']['period'], select_sat=select_sat)
-
-        if not all_imgs:
-
-            print(f'No images for {tile} in the period')
-
-            return
-
-        # output location
-        output_rrs = [fr'{params["output_dir"]}\atmcor\{select_sat}\{tile}\{os.path.basename(i).split(".")[0]}' for i in all_imgs]
-        select_sat_list = [select_sat] * len(all_imgs)
-
-        args = zip(all_imgs, output_rrs, select_sat_list)
-
-        with Pool(processes=params['aux_info']['n_cores']) as pool:
-            results = pool.starmap(gceratmos_sentinel.run_gceratmos, args)
-            print(results)
+            logging.error(f"An error occurred while processing tile {tile}: {e}")

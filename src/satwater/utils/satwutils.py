@@ -224,5 +224,11 @@ def fix_band_name(band_nm, sat):
         elif band_nm == 'B3': band_nmi = 'B03' # green
         elif band_nm == 'B4': band_nmi = 'B04' # red
         elif band_nm == 'B5': band_nmi = 'B05' # nir narrow
+        elif band_nm == 'B6': band_nmi = 'B06' # SWIR1
+        elif band_nm == 'B7': band_nmi = 'B07' # swir2
+        else:
+            band_nmi = band_nm
+    else:
+        band_nmi = band_nm
 
     return band_nmi

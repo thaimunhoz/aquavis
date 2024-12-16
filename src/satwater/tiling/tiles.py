@@ -1,85 +1,99 @@
 import os
-import ast
 import glob
-import os.path
 import multiprocessing
-
 import pandas as pd
-
 from src.satwater.utils import satwutils
 
-def gen_tiles(landsat_scene, params):
+def gen_tiles(landsat_scene: str, params: dict) -> None:
 
-    '''
-    Generate the tiles for the Landsat scene. The Landsat bands are reprojected, resampled, and clipped to the Sentinel tile (MGRS).
-    For each Landsat tile, we look for all intersections with Sentinel tiles and generate the corresponding tiles.
-    '''
+    """
+    Generate tiles for a given Landsat scene by reprojecting, resampling, and clipping it to Sentinel tile geometry.
 
-    print(landsat_scene)
+    Args:
+        landsat_scene (str): Path to the Landsat scene directory.
+        params (dict): Dictionary containing necessary parameters for tiling, including Sentinel tile geometry and EPSG code.
 
-    landsat_bands = ['B2', 'B3', 'B4', 'B5']
+    Returns:
+        None
+    """
 
-    sen_tile = params['sen_tiles_target']
+    print(f"Processing Landsat scene: {landsat_scene}")
 
-    #path = fr"{landsat_scene}\{os.listdir(landsat_scene)[1]}"
-
-    landsat_scene_all_bands = [f for f in glob.glob(os.path.join(landsat_scene, '*')) if any(band in f for band in landsat_bands)]
-
-    #sen_gdf = sen_tile[sen_tile['Name'] == sen_tile_target]
+    landsat_bands = ['B2', 'B3', 'B4', 'B5', 'B7']
+    landsat_scene_all_bands = [
+        f for f in glob.glob(os.path.join(landsat_scene, '*')) if any(band in f for band in landsat_bands)
+    ]
 
     sen2_epsg_code = params['sen2_epsg_code']
 
     for landsat_band in landsat_scene_all_bands:
 
-        base_dir_nm = fr"{params['output_dir_tiling']}\landsat\{os.path.basename(os.path.dirname(landsat_band))}"
-        satwutils.create_dir(base_dir_nm)
-        out_band = fr"{base_dir_nm}\{os.path.basename(landsat_band)}"
+        base_dir = os.path.join(params['output_dir_tiling'], 'landsat', os.path.basename(os.path.dirname(landsat_band)))
+        satwutils.create_dir(base_dir)
 
+        out_band = os.path.join(base_dir, os.path.basename(landsat_band))
+
+        # Skip processing if output already exists
         if os.path.exists(out_band):
             continue
 
-        imgtemp = fr"{params['output_dir']}\temp\temp_{os.path.basename(landsat_band)}"
-        satwutils.reproject(landsat_band, imgtemp, sen2_epsg_code)  # reprojecting the landsat to sentienl projection
+        # Temporary file for reprojected image
+        temp_img = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(landsat_band)}")
 
-        satwutils.cut_images_res(imgtemp, params['sen_tile_target_shp'], out_band, 30)
+        # Reproject Landsat band to Sentinel projection
+        satwutils.reproject(landsat_band, temp_img, sen2_epsg_code)
 
-def run(select_sat, params):
+        # Clip and resample image to match Sentinel tile
+        satwutils.cut_images_res(temp_img, params['sen_tile_target_shp'], out_band, 30)
 
-    os.makedirs(fr"{params['output_dir']}\temp", exist_ok=True)
+def run(select_sat: str, params: dict) -> None:
+
+    """
+    Main function to generate tiles for all Landsat scenes corresponding to specified Sentinel tiles.
+
+    Args:
+        select_sat (str): Satellite type (e.g., 'landsat').
+        params (dict): Dictionary containing input/output directories, tile information, and processing settings.
+
+    Returns:
+        None
+    """
+
+    os.makedirs(os.path.join(params['output_dir'], 'temp'), exist_ok=True)
 
     sentinel_tiles_names = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\sentinel_landsat_intersections.csv')
 
-    sen_tiles = [params[select_sat]['tiles']]
+    sentinel_tiles = [params[select_sat]['tiles']]
 
-    for sen_tile_target in sen_tiles:
+    for sentinel_tile in sentinel_tiles:
+        try:
+            sent_tile_info = sentinel_tiles_names[sentinel_tiles_names['sentinel_tile'] == sentinel_tile]
 
-        sent_tile = sentinel_tiles_names[sentinel_tiles_names['sentinel_tile'] == sen_tile_target]
+            params['sen_tiles_target'] = sent_tile_info['sentinel_tile'].values[0]
+            params['sen2_epsg_code'] = sent_tile_info['sentinel_epsg'].values[0]
 
-        params['sen_tiles_target'] = sent_tile['sentinel_tile'].values[0]
+            # Get Sentinel tile geometry
+            params['sen_tile_target_shp'] = satwutils.get_tile_shp(
+                params['sen_tiles_target'], params, params['sen2_epsg_code']
+            )
 
-        # sentinel tile and projection are my reference
-        #src_dir_tile = fr'{params["sentinel"]["input_dir"]}\{sen_tile_target}'
-        #sentinel_path = \
-        #[fr'{src_dir_tile}\{i}\{os.listdir(os.path.join(src_dir_tile, i))[0]}' for i in os.listdir(src_dir_tile)][0]
-        #sentinel_img = glob.glob(f'{sentinel_path}\**\*B1*.jp2', recursive=True)[0]
+            # Create output directory for tiling
+            params['output_dir_tiling'] = os.path.join(params['output_dir'], 'tiling', sentinel_tile)
+            satwutils.create_dir(os.path.join(params['output_dir_tiling'], 'landsat'))
 
-        params['sen2_epsg_code'] = sent_tile["sentinel_epsg"].values[0]
-        params['sen_tile_target_shp'] = satwutils.get_tile_shp(params['sen_tiles_target'], params, params['sen2_epsg_code'])
+            # Gather Landsat scenes for the corresponding Sentinel tile
+            landsat_path = os.path.join(params['output_dir'], 'atmcor', 'landsat', sentinel_tile)
+            landsat_scenes = [
+                os.path.join(scene_path, os.listdir(scene_path)[1])
+                for scene_path in [os.path.join(landsat_path, subdir) for subdir in os.listdir(landsat_path)]
+            ]
 
-        # Create the output directory if it does not exist
-        params['output_dir_tiling'] = fr'{params["output_dir"]}\tiling\{sen_tile_target}'
-        satwutils.create_dir(fr'{params["output_dir_tiling"]}\landsat')
+            # Process Landsat scenes in parallel
+            with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+                pool.starmap(gen_tiles, [(scene, params) for scene in landsat_scenes])
+                pool.close()
 
-        #pathrows = ast.literal_eval(sent_tile["landsat_tiles"].values[0])
-        #landsat_pathrows = [f"{int(tile.split('_')[0]):03d}_{int(tile.split('_')[1]):03d}" for tile in pathrows]
+            print(f"Completed processing for Sentinel tile: {sentinel_tile}")
 
-        path_pr = fr'{params["output_dir"]}\atmcor\landsat\{sent_tile["sentinel_tile"].values[0]}'
-        landsat_scenes_aux = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
-        landsat_scenes = [fr"{landsat_scene}\{os.listdir(landsat_scene)[1]}" for landsat_scene in landsat_scenes_aux]
-
-        n_params = [params] * len(landsat_scenes)
-
-        with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-            results = pool.starmap_async(gen_tiles, zip(landsat_scenes, n_params)).get()
-            print(results)
-            pool.close()
+        except Exception as e:
+            print(f"Error processing Sentinel tile {sentinel_tile}: {e}")

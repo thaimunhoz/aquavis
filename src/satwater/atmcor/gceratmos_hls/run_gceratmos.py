@@ -17,8 +17,8 @@ def run_gceratmos(path_main, path_dest, satellite, path_roi=None):
     mode = None
     fmask_env = r'C:\Users\tml411\AppData\Local\anaconda3\envs\fmask_env\python'
 
-    gceratmos_r = Gceratmos(path_main, path_dest, networkdrive_letter, sat, mode)
-    gceratmos_r.run()
+    #gceratmos_r = Gceratmos(path_main, path_dest, networkdrive_letter, sat, mode)
+    #gceratmos_r.run()
 
     print(f'GCER Atmos correction applied.')
 
