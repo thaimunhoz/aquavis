@@ -64,7 +64,7 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
     elif select_sat == "sentinel":
         SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
 
-    SatWater_i.run_glint() # 4. Glint correction
+    #SatWater_i.run_glint() # 4. Glint correction
 
     SatWater_i.run_hlswater() # 5. HLS water generation
 

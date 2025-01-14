@@ -67,6 +67,7 @@ class Atmosphere:
                                   'tg_OG_no2': float(s.outputs.transmittance_no2.total), 'tg_OG_ch4': float(s.outputs.transmittance_ch4.total), 'Tg_O3': float(s.outputs.transmittance_ozone.total),
                                   'Tg_H20': float(s.outputs.transmittance_water.total), 'T_upward': float(s.outputs.transmittance_total_scattering.upward), 'T_downward': float(s.outputs.transmittance_total_scattering.downward),
                                   'p_atm': float(s.outputs.atmospheric_intrinsic_reflectance)}
+            print(self.values[i - x])
 
     def rsr_interp(self, rsr, band_number: int, range_w: list) -> dict:
         """

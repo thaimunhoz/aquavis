@@ -62,10 +62,11 @@ class Gceratmos:
             # Atmospheric correction:
             for index, band in enumerate(meta.bandname):
                 arr = tool.loadarray(tempdir + '/' + band[0:-4] + '.TIF')
+                print(tempdir + '/' + band[0:-4] + '.TIF')
                 corr = Correction(meta, atmos_param, arr, index)
                 corr.run()
                 arr_c = np.where(corr.arr_sr < 0, -9999, corr.arr_sr) # NaN value.
-
+                print(arr_c)
                 tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.TIF', dest)
 
             tool.export_meta(meta, dest)

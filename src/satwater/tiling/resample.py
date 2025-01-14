@@ -14,7 +14,7 @@ def gen_resample(sentinel_scene, params):
         params (dict): Dictionary of parameters containing output directories, tile shapefiles, etc.
     """
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
     imgtemp_dir = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(sentinel_scene)}")
     satwutils.create_dir(imgtemp_dir)
 
@@ -49,7 +49,7 @@ def run(params):
         params (dict): Dictionary of parameters containing output directories, tile shapefiles, and settings.
     """
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
     temp_dir = os.path.join(params['output_dir'], 'temp')
     os.makedirs(temp_dir, exist_ok=True)
 

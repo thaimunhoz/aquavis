@@ -293,6 +293,8 @@ class Metadata_OLI_L89:
             output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
             output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
 
+            print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
+
             self.geometry[i] = output
 
     def rescale_factor(self):

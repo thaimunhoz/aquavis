@@ -168,4 +168,4 @@ def monthly_mean_modis(json_path, atm_parameter):
 
         monthly_mean.rio.to_raster(r'Z:\guser\tml\mypapers\hls_synthetic\modis_monthly_mean' + '/' + 'MOD08_' + atm_parameter + '_' + month + '_mean.tiff')
 
-        print(f"Image saved in {r'Z:\guser\tml\mypapers\hls_synthetic\modis_monthly_mean' + '/' + 'MOD08_' + atm_parameter + '_' + month + '_mean.tiff'}")
+        #print(f"Image saved in {r'Z:\guser\tml\mypapers\hls_synthetic\modis_monthly_mean' + '/' + 'MOD08_' + atm_parameter + '_' + month + '_mean.tiff'}")

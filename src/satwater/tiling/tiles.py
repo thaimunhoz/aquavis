@@ -19,10 +19,16 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
     print(f"Processing Landsat scene: {landsat_scene}")
 
-    landsat_bands = ['B2', 'B3', 'B4', 'B5', 'B7']
+    landsat_bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
     landsat_scene_all_bands = [
-        f for f in glob.glob(os.path.join(landsat_scene, '*')) if any(band in f for band in landsat_bands)
+        f for f in glob.glob(os.path.join(landsat_scene, '*LC*', '*_B*.TIF')) if
+        any(band in f for band in landsat_bands)
     ]
+
+    landsat_scene_all_bands = sorted(
+        landsat_scene_all_bands,
+        key=lambda x: next((i for i, band in enumerate(landsat_bands) if band in x), float('inf'))
+    )
 
     sen2_epsg_code = params['sen2_epsg_code']
 
@@ -83,10 +89,11 @@ def run(select_sat: str, params: dict) -> None:
 
             # Gather Landsat scenes for the corresponding Sentinel tile
             landsat_path = os.path.join(params['output_dir'], 'atmcor', 'landsat', sentinel_tile)
-            landsat_scenes = [
-                os.path.join(scene_path, os.listdir(scene_path)[1])
-                for scene_path in [os.path.join(landsat_path, subdir) for subdir in os.listdir(landsat_path)]
-            ]
+            landsat_scenes = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
+
+            # Run in a for loop
+            #for scene in landsat_scenes:
+            #    gen_tiles(scene, params)
 
             # Process Landsat scenes in parallel
             with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:

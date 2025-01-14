@@ -99,6 +99,11 @@ def run(select_sat: str, params: dict) -> None:
                 for img in all_imgs
             ]
 
+            # Run atmospheric correction in a for loop:
+            #for img, output_path in zip(all_imgs, output_paths):
+            #    run_gceratmos(img, output_path, select_sat)
+            #    logging.info(f"Atmospheric correction completed for tile {tile}.")
+
             # Run atmospheric correction in parallel
             with Pool(processes=params['aux_info']['n_cores']) as pool:
 

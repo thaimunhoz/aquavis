@@ -23,7 +23,7 @@ def convert_float_to_int16(input_raster, output_raster, scale_factor=10000, noda
 
         # Read the input raster as a float array
         arr = src.read(1).astype('float32')
-        arr[arr < 0] = np.nan
+        arr[arr <= 0] = np.nan
 
         # Multiply the array by 10000
         arr *= scale_factor
@@ -81,10 +81,16 @@ def gen_hls(scene_path, params):
         params: dict, parameters for the HLS generation
     '''
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B12']
+    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
 
     date_time = get_scene_details(scene_path, params["sat"])
-    out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
+
+    if params["sat"] == 'landsat':
+        landsat_tile = os.path.basename(scene_path).split('_')[2]
+        out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{landsat_tile}_{params['ncode']}_v1.0"
+    else:
+        out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
+
     os.makedirs(out_dir_hls, exist_ok=True)
 
     scene_all_bands = glob.glob(f"{scene_path}\**.tif")
@@ -99,7 +105,10 @@ def gen_hls(scene_path, params):
 
         band_nmi = satwutils.fix_band_name(band_nmi, params['aux_info']['sat_name'])
 
-        basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_v1.0_{band_nmi}.tif'  ## HLS.T17SLU.2020209T155956.L30.v1.5.B01.tif
+        if params["sat"] == 'landsat':
+            basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{landsat_tile}_{params["ncode"]}_v1.0_{band_nmi}.tif'
+        else:
+            basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_v1.0_{band_nmi}.tif'  ## HLS.T17SLU.2020209T155956.L30.v1.5.B01.tif
 
         out_base_dir_nm = fr"{out_dir_hls}\{basefilename}"
 
@@ -130,17 +139,21 @@ def run(params):
 
         if sat == 'landsat':
             ncode = 'L30'
-            path_pr = fr'{params["output_dir"]}\glint\{params["sen_tile_target"]}\{sat}'
+            path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\{sat}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
         else:
             ncode = 'S30'
-            path_pr = fr'{params["output_dir"]}\glint\{params["sen_tile_target"]}\{sat}'
+            path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\{sat}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
 
         params['ncode'] = ncode
         params["sat"] = sat
 
         n_params = [params] * len(scenes)
+
+        # run in a for process
+        #for scene in scenes:
+        #    gen_hls(scene, params)
 
         with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
             results = pool.starmap_async(gen_hls, zip(scenes, n_params)).get()

@@ -12,7 +12,8 @@ def band2band_sen2land():
     dict_bands['green']={}  # 560
     dict_bands['red']={}  # 665
     dict_bands['nir']={}  # 865
-    dict_bands['swir'] = {}
+    dict_bands['swir1'] = {}
+    dict_bands['swir2'] = {}
 
     dict_bands['blue']['multi'] = 1.0161
     dict_bands['blue']['add'] = -0.0005
@@ -26,8 +27,11 @@ def band2band_sen2land():
     dict_bands['nir']['multi'] = 0.9487
     dict_bands['nir']['add'] = 0.0015
 
-    dict_bands['swir']['multi'] = 1
-    dict_bands['swir']['add'] = 0
+    dict_bands['swir1']['multi'] = 1
+    dict_bands['swir1']['add'] = 0
+
+    dict_bands['swir2']['multi'] = 1
+    dict_bands['swir2']['add'] = 0
 
     return dict_bands
 
@@ -41,8 +45,10 @@ def find_wave2band(band_wave):
         band_nm ='red'
     elif band_wave>=850 and band_wave<=880:
         band_nm = 'nir'
-    elif band_wave>=2000 and band_wave<=2400:
-        band_nm = 'swir'
+    elif band_wave >= 1500 and band_wave <= 1700:
+        band_nm = 'swir1'
+    elif band_wave >= 2000 and band_wave <= 2400:
+        band_nm = 'swir2'
     else:
         band_nm = ''
     return band_nm
@@ -61,8 +67,11 @@ def find_name2band(band_wave):
     elif band_wave == 'B8A':
         band_nm = 'nir'
 
+    elif band_wave == 'B11':
+        band_nm = 'swir1'
+
     elif band_wave == 'B12':
-        band_nm = 'swir'
+        band_nm = 'swir2'
 
     else:
 
