@@ -109,6 +109,7 @@ class Gceratmos:
             atmos_param.run()
 
             # Atmospheric correction:
+            aux_folder = tool.newdirectory(dest, 'tempdir2')
             for index, band in enumerate(meta.bandname):
 
                 with rasterio.open(meta.path_main + '/' + band[0:-4] + '.TIF') as src:
@@ -128,11 +129,23 @@ class Gceratmos:
                                  "dtype": 'float64'
                                  })
 
-                with rasterio.open(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF',"w", **out_meta) as dest:
+                with rasterio.open(tool.newdirectory(aux_folder, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF',"w", **out_meta) as dest:
                     dest.write(arr_c, 1)
 
+            # Glint correction based SWIR subtraction:
+            swir_band = [i for i in glob.glob(os.path.join(aux_folder, self.path_main[-40:], '*B6.TIF'))]
+            xda_swir = rxr.open_rasterio(swir_band[0])
+
+            for band in meta.bandname:
+
+                xda_band = rxr.open_rasterio(os.path.join(aux_folder, self.path_main[-40:], band[0:-4] + '.TIF'))
+                glint_corr = np.where((xda_band - xda_swir) <= 0, xda_band, (xda_band - xda_swir))
+
+                glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+
+                glint_corr_data.rio.to_raster(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF')
+
             tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main[-40:]))
-            #shutil.rmtree(tempdir)
 
         else:
 
