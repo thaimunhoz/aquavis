@@ -1,7 +1,8 @@
 import logging
 from src.satwater import build_satwater
+from src.satwater.input_gee import toa_gee
 
-def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, output_dir: str,) -> None:
+def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, output_dir: str, keep_atmcor: str, input_toa: str, brdf_corr: str, output_type: str) -> None:
 
     '''
     Run the SatWater processing chain.
@@ -33,6 +34,9 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
             "period": (period_ini, period_end),
             "n_cores": n_cores,
             "sat_name": select_sat,
+            "keep_atmor": keep_atmcor,
+            "brdf_corr": brdf_corr,
+            "output_type": output_type,
         },
         "sentinel": {
             "input_dir": r"Z:\dbcenter\images\sentinel\scenes\level_toa",
@@ -56,7 +60,11 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
         raise
 
     # Run processing steps
-    SatWater_i.run_atmcor() # 1. Atmospheric correction
+    if input_toa == "GEE":
+        SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
+
+    else:
+        SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
     if select_sat == "landsat":
         SatWater_i.run_tiling() # 2. Tiling for Landsat
@@ -64,7 +72,7 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
     elif select_sat == "sentinel":
         SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
 
-    #SatWater_i.run_glint() # 4. Glint correction
+    # SatWater_i.run_glint() # 4. Glint correction
 
     SatWater_i.run_hlswater() # 5. HLS water generation
 

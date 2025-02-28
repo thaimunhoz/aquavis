@@ -4,6 +4,8 @@ import shutil
 import warnings
 import rasterio
 import numpy as np
+import xarray as xr
+import rioxarray as rxr
 
 from src.satwater.atmcor.gceratmos_hls import toolbox as tool
 from src.satwater.atmcor.gceratmos_hls.metadata import Metadata_MSI_S2
@@ -18,6 +20,7 @@ class Gceratmos:
                  path_dest: str,
                  networkdrive_letter: str,
                  satellite: str,
+                 aero_type: str,
                  mode=None,
                  path_buffer=None):
 
@@ -28,6 +31,7 @@ class Gceratmos:
         self.path_dest = path_dest
         self.networkdrive_letter = networkdrive_letter
         self.satellite = satellite
+        self.aero_type = aero_type
         self.mode = mode
         self.path_buffer = path_buffer
 
@@ -52,7 +56,7 @@ class Gceratmos:
                 tool.jp2_to_tiff_xarray(i, tempdir + '/' + i[-30:-4] + '.TIF')
 
             # Metadata:
-            meta = Metadata_MSI_S2(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.mode)
+            meta = Metadata_MSI_S2(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode)
             meta.run()
 
             # Atmospheric parameters:
@@ -67,10 +71,26 @@ class Gceratmos:
                 corr.run()
                 arr_c = np.where(corr.arr_sr < 0, -9999, corr.arr_sr) # NaN value.
                 print(arr_c)
-                tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.TIF', dest)
+
+                aux_folder = tool.newdirectory(dest, 'tempdir2')
+                tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.TIF', aux_folder)
+
+            # Glint correction based SWIR subtraction:
+            swir_band = [i for i in glob.glob(os.path.join(aux_folder, '*B11.TIF'))]
+            xda_swir = rxr.open_rasterio(swir_band[0])
+
+            for band in meta.bandname:
+                xda_band = rxr.open_rasterio(os.path.join(aux_folder, band[0:-4] + '.TIF'))
+                swir_match = xda_swir.rio.reproject_match(xda_band)
+                glint_corr = np.where((xda_band - swir_match) <= 0, xda_band, (xda_band - swir_match))
+
+                glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+
+                glint_corr_data.rio.to_raster(dest + '/' + band[0:-4] + '.TIF')
 
             tool.export_meta(meta, dest)
             shutil.rmtree(tempdir)
+            #shutil.rmtree(aux_folder)
 
         elif self.satellite == 'OLI_L8/9':
 
@@ -81,7 +101,7 @@ class Gceratmos:
             #tempdir = tool.newdirectory(dest, 'tempdir')
 
             # Metadata:
-            meta = Metadata_OLI_L89(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.mode)
+            meta = Metadata_OLI_L89(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode)
             meta.run()
 
             # Atmospheric parameters:

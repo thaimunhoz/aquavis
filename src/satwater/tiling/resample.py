@@ -3,6 +3,7 @@ import glob
 import multiprocessing
 from src.satwater.utils import satwutils
 from src.satwater.tiling import bandpass
+from src.satwater.tiling import brdf_lee11_QAA_RGB as brdf
 
 def gen_resample(sentinel_scene, params):
 
@@ -14,17 +15,12 @@ def gen_resample(sentinel_scene, params):
         params (dict): Dictionary of parameters containing output directories, tile shapefiles, etc.
     """
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
+    sentinel_bands = ['B01', 'B02', 'B03', 'B04', 'B8A', 'B11']
     imgtemp_dir = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(sentinel_scene)}")
     satwutils.create_dir(imgtemp_dir)
 
-    sentinel_scene_bands = [
-        f for f in glob.glob(os.path.join(sentinel_scene, '*.SAFE*', '*_B*.tif'))
-        if any(band in f for band in sentinel_bands)
-    ]
-    sentinel_scene_bands = sorted(
-        sentinel_scene_bands, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf'))
-    )
+    sentinel_scene_bands = [f for f in glob.glob(os.path.join(sentinel_scene, '*.SAFE*', '*_B*.tif')) if any(band in f for band in sentinel_bands)]
+    sentinel_scene_bands = sorted(sentinel_scene_bands, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf')))
 
     for sentinel_band in sentinel_scene_bands:
         output_dir = os.path.join(params['output_dir_tiling'], 'sentinel', os.path.basename(os.path.dirname(sentinel_band)))
@@ -32,13 +28,33 @@ def gen_resample(sentinel_scene, params):
 
         output_path = os.path.join(output_dir, os.path.basename(sentinel_band))
 
-        if os.path.exists(output_path):
-            continue
-
         temp_path = os.path.join(imgtemp_dir, os.path.basename(sentinel_band))
         satwutils.cut_images_res(sentinel_band, params['sen_tile_target_shp'], temp_path, 30)
 
-        bandpass.apply_bandpass(temp_path, output_path)
+    # Apply BRDF correction
+    if params['aux_info']['brdf_corr']:
+
+        brdf.call_brdf_correction(imgtemp_dir, imgtemp_dir, 'sentinel')
+
+        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.TIF') if "brdf_corrected" in f]
+
+    else:
+
+        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.TIF') if "temp" in f]
+
+    i = 0
+    images_brdf = sorted(images_brdf, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf')))
+
+    for img in images_brdf:
+
+        base_dir = os.path.join(params['output_dir_tiling'], 'sentinel', os.path.basename(os.path.dirname(sentinel_band)))
+        satwutils.create_dir(base_dir)
+
+        out_band = os.path.join(base_dir, os.path.basename(sentinel_scene_bands[i]))
+
+        bandpass.apply_bandpass(img, out_band)
+        i += 1
+
 
 def run(params):
 
@@ -49,7 +65,7 @@ def run(params):
         params (dict): Dictionary of parameters containing output directories, tile shapefiles, and settings.
     """
 
-    sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
+    sentinel_bands = ['B01', 'B02', 'B03', 'B04', 'B8A', 'B11']
     temp_dir = os.path.join(params['output_dir'], 'temp')
     os.makedirs(temp_dir, exist_ok=True)
 

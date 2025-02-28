@@ -100,16 +100,24 @@ def run(select_sat: str, params: dict) -> None:
             ]
 
             # Run atmospheric correction in a for loop:
-            #for img, output_path in zip(all_imgs, output_paths):
-            #    run_gceratmos(img, output_path, select_sat)
-            #    logging.info(f"Atmospheric correction completed for tile {tile}.")
+            # for img, output_path in zip(all_imgs, output_paths):
+            #     try:
+            #         run_gceratmos(img, output_path, select_sat)
+            #     except Exception as e:
+            #         print(f"An error occurred while processing image {img}: {e}")
+
+                #logging.info(f"Atmospheric correction completed for tile {tile}.")
+
+            # Run in a for loop
+            for img, output_path in zip(all_imgs, output_paths):
+                run_gceratmos(img, output_path, select_sat)
 
             # Run atmospheric correction in parallel
-            with Pool(processes=params['aux_info']['n_cores']) as pool:
-
-                args = zip(all_imgs, output_paths, [select_sat] * len(all_imgs))
-                results = pool.starmap(run_gceratmos, args)
-                logging.info(f"Atmospheric correction completed for tile {tile}. Results: {results}")
+            # with Pool(processes=params['aux_info']['n_cores']) as pool:
+            #
+            #     args = zip(all_imgs, output_paths, [select_sat] * len(all_imgs))
+            #     results = pool.starmap(run_gceratmos, args)
+            #     logging.info(f"Atmospheric correction completed for tile {tile}. Results: {results}")
 
         except Exception as e:
 

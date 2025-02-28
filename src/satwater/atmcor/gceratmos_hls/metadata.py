@@ -14,6 +14,7 @@ class Metadata_MSI_S2:
                  path_dest: str,
                  networkdrive_letter: str,
                  satellite: str,
+                 aero_type: str,
                  mode=None):
 
         self.MTD = '/MTD_TL.xml'
@@ -30,6 +31,7 @@ class Metadata_MSI_S2:
         self.path_dest = path_dest
         self.networkdrive_letter = networkdrive_letter
         self.satellite = satellite
+        self.aero_type = aero_type
         self.mode = mode
 
         self.type = str("nan")
@@ -197,6 +199,7 @@ class Metadata_OLI_L89:
                  path_dest: str,
                  networkdrive_letter: str,
                  satellite: str,
+                 aero_type: str,
                  mode=None):
 
         self.MTD = '/MTD_TL.xml'
@@ -212,6 +215,7 @@ class Metadata_OLI_L89:
         self.path_dest = path_dest
         self.networkdrive_letter = networkdrive_letter
         self.satellite = satellite
+        self.aero_type = aero_type
         self.mode = mode
 
         self.type = str("nan")
@@ -293,7 +297,7 @@ class Metadata_OLI_L89:
             output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
             output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
 
-            print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
+            #print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
 
             self.geometry[i] = output
 

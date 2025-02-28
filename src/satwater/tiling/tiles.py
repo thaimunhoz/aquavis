@@ -1,8 +1,9 @@
 import os
 import glob
-import multiprocessing
 import pandas as pd
+import multiprocessing
 from src.satwater.utils import satwutils
+from src.satwater.tiling import brdf_lee11_QAA_RGB as brdf
 
 def gen_tiles(landsat_scene: str, params: dict) -> None:
 
@@ -19,7 +20,7 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
     print(f"Processing Landsat scene: {landsat_scene}")
 
-    landsat_bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    landsat_bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']
     landsat_scene_all_bands = [
         f for f in glob.glob(os.path.join(landsat_scene, '*LC*', '*_B*.TIF')) if
         any(band in f for band in landsat_bands)
@@ -32,6 +33,9 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
     sen2_epsg_code = params['sen2_epsg_code']
 
+    imgtemp_dir = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(landsat_scene)}")
+    satwutils.create_dir(imgtemp_dir)
+
     for landsat_band in landsat_scene_all_bands:
 
         base_dir = os.path.join(params['output_dir_tiling'], 'landsat', os.path.basename(os.path.dirname(landsat_band)))
@@ -39,18 +43,35 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
         out_band = os.path.join(base_dir, os.path.basename(landsat_band))
 
-        # Skip processing if output already exists
-        if os.path.exists(out_band):
-            continue
-
         # Temporary file for reprojected image
-        temp_img = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(landsat_band)}")
+        temp_img = os.path.join(imgtemp_dir, f"temp_{os.path.basename(landsat_band)}")
 
         # Reproject Landsat band to Sentinel projection
         satwutils.reproject(landsat_band, temp_img, sen2_epsg_code)
 
-        # Clip and resample image to match Sentinel tile
-        satwutils.cut_images_res(temp_img, params['sen_tile_target_shp'], out_band, 30)
+    # Apply BRDF correction
+    if params['aux_info']['brdf_corr']:
+        brdf.call_brdf_correction(imgtemp_dir, imgtemp_dir, 'landsat')
+
+        path_out = imgtemp_dir
+        images_brdf = [f for f in glob.glob(fr'{path_out}\*.TIF') if "brdf_corrected" in f]
+
+    else:
+        path_out = imgtemp_dir
+        images_brdf = [f for f in glob.glob(fr'{path_out}\*.TIF') if "temp" in f]
+
+    # Clip and resample image to match Sentinel tile
+    i = 0
+
+    for img in images_brdf:
+
+        base_dir = os.path.join(params['output_dir_tiling'], 'landsat', os.path.basename(os.path.dirname(landsat_band)))
+        satwutils.create_dir(base_dir)
+
+        out_band = os.path.join(base_dir, os.path.basename(landsat_scene_all_bands[i]))
+
+        satwutils.cut_images_res(img, params['sen_tile_target_shp'], out_band, 30)
+        i += 1
 
 def run(select_sat: str, params: dict) -> None:
 
@@ -90,10 +111,6 @@ def run(select_sat: str, params: dict) -> None:
             # Gather Landsat scenes for the corresponding Sentinel tile
             landsat_path = os.path.join(params['output_dir'], 'atmcor', 'landsat', sentinel_tile)
             landsat_scenes = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
-
-            # Run in a for loop
-            #for scene in landsat_scenes:
-            #    gen_tiles(scene, params)
 
             # Process Landsat scenes in parallel
             with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:

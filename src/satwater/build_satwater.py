@@ -2,6 +2,7 @@ import os
 import logging
 from typing import Optional, Dict, Any
 
+from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
 from src.satwater.atmcor import atm6s as atmcor
 from src.satwater.tiling import tiles as tiling
 from src.satwater.tiling import resample as resample
@@ -53,9 +54,16 @@ class SatWater(object):
         """
         Perform atmospheric correction using the 6S model.
         """
+        self._create_output_dir()
+        atmcor.run(self.select_sat, self.params)
+
+    def run_atmcor_gee(self) -> None:
+        """
+        Perform atmospheric correction using the 6S model.
+        """
         try:
             self._create_output_dir()
-            atmcor.run(self.select_sat, self.params)
+            atmcor_gee.run(self.select_sat, self.params)
             logging.info("Atmospheric correction completed successfully.")
         except Exception as e:
             logging.error(f"Error during atmospheric correction: {e}")

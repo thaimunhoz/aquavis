@@ -11,4 +11,4 @@ import sys
 sys.path.append('/ddnlus/r3693/hls_water/scripts/hls_water/src')
 
 # Run the function
-run_satwater(select_sat, tile, period_ini, period_end, output_dir)
+run_satwater(select_sat, tile, period_ini, period_end, output_dir, keep_atmcor=False, input_toa = "GCER")

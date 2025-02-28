@@ -1,30 +1,17 @@
 import os
 import rasterio
 import numpy as np
+import xarray as xr
 import multiprocessing
+import rioxarray as rxr
 from scipy.ndimage import median_filter
 from src.satwater.utils import satwutils
 
-def calculate_mndwi(green_band, swir_band):
+
+def apply_glint_correction(input_dir, params):
 
     """
-       Calculates the Modified Normalized Difference Water Index (MNDWI).
-
-       Parameters:
-           green_band (numpy.ndarray): Array of reflectance values from the green band.
-           swir_band (numpy.ndarray): Array of reflectance values from the SWIR band.
-
-       Returns:
-           numpy.ndarray: MNDWI values.
-       """
-
-    mndwi = (green_band - swir_band) / (green_band + swir_band)
-    return mndwi
-
-def apply_glint_correction(input_dir, params, mndwi_threshold=0.3):
-
-    """
-        Applies sunglint correction to satellite images based on the MNDWI threshold.
+        Applies sunglint correction to satellite images based on the Wang and Shi, 2007 aproach.
 
         Parameters:
             scene_dir (str): Path to the directory containing the satellite image bands.
@@ -34,58 +21,41 @@ def apply_glint_correction(input_dir, params, mndwi_threshold=0.3):
 
     sat = params["sat"]
 
-    bands = ['B2', 'B3', 'B4', 'B5', 'B02', 'B03', 'B04', 'B05', 'B8', 'B8A', 'B11', 'B12']
+    bands = ['B2', 'B3', 'B4', 'B5', 'B6', 'B02', 'B03', 'B04', 'B8A', 'B11']
 
     input_bands = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if any(band in f for band in bands)]
 
     if sat == 'landsat':
-        swir_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B7' in f)
-        green_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B3' in f)
+        swir_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B6' in f)
 
         base_dir = os.path.join(params['output_dir_glint'], 'landsat', os.path.basename(os.path.dirname(input_bands[0])))
         satwutils.create_dir(base_dir)
 
     else:
-        green_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B03' in f)
-        swir_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B12' in f)
+        swir_band = next(os.path.join(input_dir, f) for f in os.listdir(input_dir) if 'B11' in f)
         base_dir = os.path.join(params['output_dir_glint'], 'sentinel', os.path.basename(os.path.dirname(input_bands[0])))
         satwutils.create_dir(base_dir)
 
-    with rasterio.open(green_band) as green_src, rasterio.open(swir_band) as swir_src:
+    xda_swir = rxr.open_rasterio(swir_band)
 
-        green = green_src.read(1).astype(np.float32)
-        swir = swir_src.read(1).astype(np.float32)
-        profile = green_src.profile
+    for band_path in input_bands:
 
-        # Apply median filter to SWIR band (3x3 window)
-        filtered_swir = median_filter(swir, size=3)
+        if 'B6' in band_path or 'B11' in band_path:
 
-        # Calculate MNDWI
-        mndwi = calculate_mndwi(green, swir)
+            xda_ = rxr.open_rasterio(band_path)
+            file_name_without_ext = os.path.basename(band_path)
+            output_path = f"{base_dir}/{file_name_without_ext}"
+            xda_.rio.to_raster(output_path)
 
-        # Define ROI where MNDWI > threshold
-        roi_mask = mndwi > mndwi_threshold
+        else:
+            xda_ = rxr.open_rasterio(band_path)
+            band_glint_corrected = np.where((xda_ - xda_swir) < 0, xda_, (xda_ - xda_swir))
+            xda_glint = xr.DataArray(band_glint_corrected, dims=xda_.dims, coords=xda_.coords, attrs=xda_.attrs)
 
-        # Calculate beta (minimum SWIR value in ROI)
-        beta = np.percentile(swir[roi_mask], 25)  # np.min(swir[roi_mask])
+            file_name_without_ext = os.path.basename(band_path)
+            output_path = f"{base_dir}/{file_name_without_ext}"
 
-        for band_path in input_bands:
-            with rasterio.open(band_path) as band_src:
-                band = band_src.read(1).astype(np.float32)
-
-                # Apply glint correction: reflec_corrected = reflec_original - alpha * (reflec_original(swir) - beta)
-                #corrected_band = band - 1 * (filtered_swir - beta)
-                corrected_band = (filtered_swir - beta)
-
-                # Save corrected band
-                file_name_without_ext = os.path.basename(band_path)
-                output_path = f"{base_dir}/{file_name_without_ext}"
-                profile.update(dtype=rasterio.float32)
-
-                with rasterio.open(output_path, 'w', **profile) as dst:
-                    dst.write(corrected_band, 1)
-
-                print(f"Corrected band saved at: {output_path}")
+            xda_glint.rio.to_raster(output_path)
 
 def run(params):
 
@@ -128,7 +98,7 @@ def run(params):
         for scene in scenes:
             apply_glint_correction(scene, params)
 
-        #with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-        #    results = pool.starmap_async(apply_glint_correction, zip(scenes, n_params)).get()
-        #    print(results)
-        #    pool.close()
+        # with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+        #     results = pool.starmap_async(apply_glint_correction, zip(scenes, n_params)).get()
+        #     print(results)
+        #     pool.close()
