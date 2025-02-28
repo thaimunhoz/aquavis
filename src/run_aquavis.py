@@ -39,7 +39,7 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
             "output_type": output_type,
         },
         "sentinel": {
-            "input_dir": r"Z:\dbcenter\images\sentinel\scenes\level_toa",
+            "input_dir": r"Z:\guser\tml\mypapers\HLS_package_paper\sentinel_toa",
             "tiles_shp": tiles_sentinel,
         },
         "landsat": {
@@ -71,8 +71,6 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
 
     elif select_sat == "sentinel":
         SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
-
-    # SatWater_i.run_glint() # 4. Glint correction
 
     SatWater_i.run_hlswater() # 5. HLS water generation
 

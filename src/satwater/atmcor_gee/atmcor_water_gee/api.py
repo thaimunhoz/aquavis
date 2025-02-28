@@ -1,6 +1,6 @@
 # -*- mode: python -*-
 
-from gceratmos_gee import Gceratmos
+from atmcor_water_gee import Gceratmos
 from cloud.SatClouds.satclouds import Satcloud
 
 """
@@ -54,7 +54,7 @@ cloud_mask.run()
 
 
 #########################################
-from gceratmos_gee import Gceratmos
+from atmcor_water_gee import Gceratmos
 from cloud.SatClouds.satclouds import Satcloud
 
 import pandas as pd
@@ -82,7 +82,7 @@ pd.concat(z).to_csv(r'R:\guser\rsp\PhD\papers\hls_synthetic\dataset\images\S2X_M
 
 import os
 import glob
-from gceratmos_gee import Gceratmos
+from atmcor_water_gee import Gceratmos
 import pandas as pd
 
 # {Input}

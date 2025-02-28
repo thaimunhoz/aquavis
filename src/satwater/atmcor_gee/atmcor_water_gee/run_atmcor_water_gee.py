@@ -1,5 +1,5 @@
-from src.satwater.atmcor_gee.gceratmos_hls.gceratmos_gee import Gceratmos_gee
-from src.satwater.atmcor.gceratmos_hls.cloud.SatClouds.satclouds import Satcloud
+from src.satwater.atmcor_gee.atmcor_water_gee.atmcor_water_gee import Gceratmos_gee
+from src.satwater.atmcor.atmcor_water.cloud.SatClouds.satclouds import Satcloud
 
 def run_gceratmos_gee(path_main, path_dest, satellite, aero_type="Maritime", path_roi=None):
 

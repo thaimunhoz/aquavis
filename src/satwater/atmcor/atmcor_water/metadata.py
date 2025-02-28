@@ -3,12 +3,9 @@ import glob
 import calendar
 import numpy as np
 import pandas as pd
-import rioxarray as rio
-import geopandas as gpd
-from shapely.geometry import box
-from src.satwater.atmcor.gceratmos_hls import toolbox as tool
+from src.satwater.atmcor.atmcor_water import toolbox as tool
 from datetime import datetime, timedelta
-from src.satwater.atmcor.gceratmos_hls.atm.coefficient import MCDExtractWindow
+from src.satwater.atmcor.atmcor_water.atm.coefficient import MCDExtractWindow
 
 class Metadata_MSI_S2:
 
@@ -18,8 +15,6 @@ class Metadata_MSI_S2:
                  networkdrive_letter: str,
                  satellite: str,
                  aero_type: str,
-                 xda_vnir,
-                 metadata_xda,
                  mode=None):
 
         self.MTD = '/MTD_TL.xml'
@@ -37,8 +32,6 @@ class Metadata_MSI_S2:
         self.networkdrive_letter = networkdrive_letter
         self.satellite = satellite
         self.aero_type = aero_type
-        self.xda_vnir = xda_vnir
-        self.metadata_xda = metadata_xda
         self.mode = mode
 
         self.type = str("nan")
@@ -58,31 +51,23 @@ class Metadata_MSI_S2:
         Scans the metadata.
         """
 
-        # path = [i for i in glob.glob(os.path.join(self.path_main + self.GRANULE, '*')) if 'L1C_' in i]
-        #
-        # self.s2path = path[0] + self.IMG_DATA
-        #
-        # # Return the bouding box of the image:
-        # self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
+        path = [i for i in glob.glob(os.path.join(self.path_main + self.GRANULE, '*')) if 'L1C_' in i]
+
+        self.s2path = path[0] + self.IMG_DATA
 
         # Return the bouding box of the image:
-        self.xda_vnir = self.xda_vnir.rename({"X": "x", "Y": "y"})
-        self.xda_vnir.rio.set_spatial_dims("x", "y")
-        bounds = self.xda_vnir.rio.bounds()
-        bbox_polygon = box(*bounds)
-        self.roi = gpd.GeoDataFrame({'geometry': [bbox_polygon]}, crs=self.xda_vnir.rio.crs)
+        self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
 
-        self.bandname = ["B2", "B3", "B4", "B8A", "B11"]
-        self.type = self.path_main.split('_')[0] # safe number A or B
-
+        self.bandname = [i for i in os.listdir(self.s2path) if self.BAND_ID in i]
+        self.bandname.insert(8, self.bandname.pop(-1)) # band name
+        self.dict_metadata = tool.xml_to_json(str(path[0]) + self.MTD) # metadata from sensor
+        self.type = str(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:General_Info']['TILE_ID']['#text'][0:3]) # safe number A or B
         self.date_and_time()
         self.geo()
         self.read_coefficient()
-        #self.rescale_factor()
+        self.rescale_factor()
 
         df = pd.DataFrame({'img': [self.path_main], 'aod': [self.aod], 'wv': [self.water_vapour], 'oz': [self.ozone], 'alt': [self.altitude]})
-
-        if not os.path.exists(self.path_dest): os.makedirs(self.path_dest)
         df.to_csv(self.path_dest + '/' + 'atm_parameters.csv')
 
     def date_and_time(self):
@@ -91,14 +76,19 @@ class Metadata_MSI_S2:
         Returns the date and the time.
         """
 
-        date = self.xda_vnir["time"].values[0].astype('datetime64[ms]').item()
+        # Verifies the metadata:
+        date_and_time = self.dict_metadata["n1:Level-1C_Tile_ID"]['n1:General_Info']['SENSING_TIME']['#text']
+        date_acquired = date_and_time[0:10]
+        date = datetime.strptime(date_acquired, '%Y-%m-%d').timetuple()
+        scene_center_time = date_and_time[11:-1].split(':')
+        time_hh = int(scene_center_time[0]) + (float(scene_center_time[1]) / 60) + (float(scene_center_time[2]) / 3600)
 
         # Export date and time in a metadata structure:
         value = DateTime()
-        value.day = date.day
-        value.month = date.month
-        value.year = date.year
-        value.time_hh = date.hour + (date.minute / 60) + (date.second / 3600)
+        value.day = date.tm_mday
+        value.month = date.tm_mon
+        value.year = date.tm_year
+        value.time_hh = time_hh
 
         self.datetime = value
 
@@ -111,23 +101,16 @@ class Metadata_MSI_S2:
         # Sun azimuth [az] and zenith [zn] angle:
         # View azimuth [az] and zenith [zn] angles:
         # It considers the angle average of the scene.
-        count = 0
-        bands = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B9", "B10", "B11", "B12"]
 
-        for i in bands:
+        for i in range(0, 13):
 
             output = {}
-            output['solar_az'] = float(self.metadata_xda["features"][0]["properties"]["MEAN_SOLAR_AZIMUTH_ANGLE"]) # MEAN_SOLAR_AZIMUTH_ANGLE
-            output['solar_zn'] = float(self.metadata_xda["features"][0]["properties"]["MEAN_SOLAR_ZENITH_ANGLE"]) #MEAN_SOLAR_ZENITH_ANGLE
+            output['solar_az'] = float(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:Geometric_Info']['Tile_Angles']['Mean_Sun_Angle']['AZIMUTH_ANGLE']['#text'])
+            output['solar_zn'] = float(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:Geometric_Info']['Tile_Angles']['Mean_Sun_Angle']['ZENITH_ANGLE']['#text'])
+            output['view_az'] = np.array(float(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:Geometric_Info']['Tile_Angles']["Mean_Viewing_Incidence_Angle_List"]['Mean_Viewing_Incidence_Angle'][i]['AZIMUTH_ANGLE']['#text'])).mean()
+            output['view_zn'] = np.array(float(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:Geometric_Info']['Tile_Angles']["Mean_Viewing_Incidence_Angle_List"]['Mean_Viewing_Incidence_Angle'][i]['ZENITH_ANGLE']['#text'])).mean()
 
-            band_name_view_az = "MEAN_INCIDENCE_AZIMUTH_ANGLE_" + str(i)
-            output['view_az'] = float(self.metadata_xda["features"][0]["properties"][band_name_view_az]) # MEAN_INCIDENCE_AZIMUTH_ANGLE
-
-            band_name_view_zn = "MEAN_INCIDENCE_ZENITH_ANGLE_" + str(i)
-            output['view_zn'] = float(self.metadata_xda["features"][0]["properties"][band_name_view_zn]) # MEAN_INCIDENCE_ZENITH_ANGLE
-
-            self.geometry[count] = output
-            count += 1
+            self.geometry[i] = output
 
     def rescale_factor(self):
 
@@ -217,9 +200,6 @@ class Metadata_OLI_L89:
                  networkdrive_letter: str,
                  satellite: str,
                  aero_type: str,
-                 xda_vnir,
-                 xda_angles,
-                 metadata_xda,
                  mode=None):
 
         self.MTD = '/MTD_TL.xml'
@@ -237,9 +217,6 @@ class Metadata_OLI_L89:
         self.satellite = satellite
         self.aero_type = aero_type
         self.mode = mode
-        self.xda_vnir = xda_vnir
-        self.xda_angles = xda_angles
-        self.metadata_xda = metadata_xda
 
         self.type = str("nan")
         self.bandname = list("nan")
@@ -258,27 +235,20 @@ class Metadata_OLI_L89:
         Scans the metadata.
         """
 
-        self.bandname = ["B2", "B3", "B4", "B5", "B6"] # band name
-        #path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
+        self.bandname = [i for i in os.listdir(self.path_main) if self.BAND_ID in i and 'B9' not in i and 'B10' not in i and 'B11' not in i and 'B12' not in i] # band name
+        path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
 
         # Return the bouding box of the image:
-        self.xda_vnir = self.xda_vnir.rename({"X": "x", "Y": "y"})
-        self.xda_vnir.rio.set_spatial_dims("x", "y")
-        bounds = self.xda_vnir.rio.bounds()
-        bbox_polygon = box(*bounds)
-        self.roi = gpd.GeoDataFrame({'geometry': [bbox_polygon]}, crs=self.xda_vnir.rio.crs)
+        self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
 
-        #self.dict_metadata = tool.xml_to_json(str(path[0])) # metadata from sensor
-        self.type = self.path_main.split('_')[0] # safe number L8 or L9
+        self.dict_metadata = tool.xml_to_json(str(path[0])) # metadata from sensor
+        self.type = str(self.dict_metadata['LANDSAT_METADATA_FILE']['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID'][0:4]) # safe number L8 or L9
         self.date_and_time()
         self.geo()
         self.read_coefficient()
         self.rescale_factor()
 
         df = pd.DataFrame({'img': [self.path_main], 'aod': [self.aod], 'wv': [self.water_vapour], 'oz': [self.ozone], 'alt': [self.altitude]})
-
-        if not os.path.exists(self.path_dest): os.makedirs(self.path_dest)
-
         df.to_csv(self.path_dest + '/' + 'atm_parameters.csv')
 
     def date_and_time(self):
@@ -287,15 +257,18 @@ class Metadata_OLI_L89:
         Returns the date and the time.
         """
 
-        date = self.xda_vnir["time"].values[0].astype('datetime64[ms]').item()
+        # Verifies the metadata:
+        date_acquired = self.dict_metadata['LANDSAT_METADATA_FILE']['IMAGE_ATTRIBUTES']['DATE_ACQUIRED']
+        date = datetime.strptime(date_acquired, '%Y-%m-%d').timetuple()
+        scene_center_time = self.dict_metadata['LANDSAT_METADATA_FILE']['IMAGE_ATTRIBUTES']['SCENE_CENTER_TIME'][0:16].split(':')
+        time_hh = int(scene_center_time[0]) + (float(scene_center_time[1]) / 60) + (float(scene_center_time[2]) / 3600)
 
         # Export date and time in a metadata structure:
         value = DateTime()
-        value.day = date.day
-        value.month = date.month
-        value.year = date.year
-        value.time_hh = date.hour + (date.minute / 60) + (date.second / 3600)
-
+        value.day = date.tm_mday
+        value.month = date.tm_mon
+        value.year = date.tm_year
+        value.time_hh = time_hh
         self.datetime = value
 
     def geo(self):
@@ -309,14 +282,20 @@ class Metadata_OLI_L89:
         # It considers the angle averages of the scene.
         # The band 4 (red) is used as reference because it is near the center of the OLI/Landsat-8/9 focal plane.
 
+        import l8angles
+
+        path = [i for i in glob.glob(os.path.join(self.path_main, '*.txt')) if self.ANG_ID in i]
+        solar = l8angles.calculate_angles(path[0], angle_type='SOLAR', subsample=1, bands=[4])
+        view = l8angles.calculate_angles(path[0], angle_type='SATELLITE', subsample=1, bands=[4])
+
         for i in range(0, 8):
 
             output = {}
 
-            output['solar_az'] = np.nanmean(self.xda_angles["SAA"].values[0,:,:])
-            output['solar_zn'] = np.nanmean(self.xda_angles["SZA"].values[0,:,:])
-            output['view_az'] = np.nanmean(self.xda_angles["VAA"].values[0,:,:])
-            output['view_zn'] = np.nanmean(self.xda_angles["VZA"].values[0,:,:])
+            output['solar_az'] = np.mean(solar['sun_az'][0][~np.isnan(solar['sun_az'][0])])
+            output['solar_zn'] = np.mean(solar['sun_zn'][0][~np.isnan(solar['sun_zn'][0])])
+            output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
+            output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
 
             #print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
 
@@ -330,8 +309,8 @@ class Metadata_OLI_L89:
 
         # It obtains the factor values to convert from DN_TOA to REFLECTANCE_TOA:
         for i in range(1, 9):
-            ADD_BAND = float(self.metadata_xda["features"][0]["properties"]['REFLECTANCE_ADD_BAND_' + str(i)])
-            MULT_BAND = float(self.metadata_xda["features"][0]["properties"]['REFLECTANCE_MULT_BAND_' + str(i)])
+            ADD_BAND = float(self.dict_metadata['LANDSAT_METADATA_FILE']['LEVEL1_RADIOMETRIC_RESCALING']['REFLECTANCE_ADD_BAND_' + str(i)])
+            MULT_BAND = float(self.dict_metadata['LANDSAT_METADATA_FILE']['LEVEL1_RADIOMETRIC_RESCALING']['REFLECTANCE_MULT_BAND_' + str(i)])
             self.rescale[i - 1] = {'add': ADD_BAND, 'mult': MULT_BAND}
 
     def read_coefficient(self):

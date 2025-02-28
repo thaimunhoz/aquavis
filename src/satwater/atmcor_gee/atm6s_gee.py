@@ -9,7 +9,7 @@ from multiprocessing import Pool
 from typing import List, Tuple
 
 from src.satwater.input_gee import toa_gee
-from src.satwater.atmcor_gee.gceratmos_hls.run_gceratmos_gee import run_gceratmos_gee
+from src.satwater.atmcor_gee.atmcor_water_gee.run_atmcor_water_gee import run_gceratmos_gee
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

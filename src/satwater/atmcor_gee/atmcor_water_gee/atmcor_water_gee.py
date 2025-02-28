@@ -6,11 +6,11 @@ import rasterio
 import numpy as np
 
 from src.satwater.input_gee import toa_gee
-from src.satwater.atmcor_gee.gceratmos_hls import toolbox_gee as tool
-from src.satwater.atmcor_gee.gceratmos_hls.metadata_gee import Metadata_MSI_S2
-from src.satwater.atmcor_gee.gceratmos_hls.metadata_gee import Metadata_OLI_L89
-from src.satwater.atmcor_gee.gceratmos_hls.atm.atmosphere_gee import Atmosphere
-from src.satwater.atmcor_gee.gceratmos_hls.atm.correction_gee import Correction
+from src.satwater.atmcor_gee.atmcor_water_gee import toolbox_gee as tool
+from src.satwater.atmcor_gee.atmcor_water_gee.metadata_gee import Metadata_MSI_S2
+from src.satwater.atmcor_gee.atmcor_water_gee.metadata_gee import Metadata_OLI_L89
+from src.satwater.atmcor_gee.atmcor_water_gee.atm.atmosphere_gee import Atmosphere
+from src.satwater.atmcor_gee.atmcor_water_gee.atm.correction_gee import Correction
 
 class Gceratmos_gee:
 

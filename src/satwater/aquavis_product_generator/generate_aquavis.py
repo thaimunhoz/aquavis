@@ -3,8 +3,10 @@ import glob
 import shutil
 import os.path
 import rasterio
+import rioxarray
 import numpy as np
 import multiprocessing
+from rasterio.warp import Resampling
 from src.satwater.utils import satwutils
 
 def convert_float_to_int16(input_raster, output_raster, params, scale_factor=10000, nodata=-9999):
@@ -33,8 +35,6 @@ def convert_float_to_int16(input_raster, output_raster, params, scale_factor=100
         else:
             arr = arr/np.pi # Rrs
 
-        # Multiply the array by 10000
-        #arr *= scale_factor
         arr = np.where(np.isnan(arr), nodata, arr)
 
         # Copy the metadata from the input raster
@@ -77,7 +77,7 @@ def get_scene_details(scene_path, sat='landsat'):
         ss = os.path.basename(img).split("_")[7]
 
         date_time = scene_name.split('_')[3]
-        #date_time = f"{date_time}T{hh}{mm}{ss}"
+        date_time = f"{date_time}T{hh}{mm}{ss}"
 
     return date_time
 
@@ -96,9 +96,9 @@ def gen_hls(scene_path, params):
 
     if params["sat"] == 'landsat':
         landsat_tile = os.path.basename(scene_path).split('_')[2]
-        out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{landsat_tile}_{params['ncode']}_v1.0"
+        out_dir_hls = fr"{params['output_dir_hls']}\AQUAVis_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
     else:
-        out_dir_hls = fr"{params['output_dir_hls']}\HLS_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
+        out_dir_hls = fr"{params['output_dir_hls']}\AQUAVis_T{params['sen_tile_target']}_{date_time}_{params['ncode']}_v1.0"
 
     os.makedirs(out_dir_hls, exist_ok=True)
 
@@ -114,12 +114,13 @@ def gen_hls(scene_path, params):
 
         band_nmi = satwutils.fix_band_name(band_nmi, params['aux_info']['sat_name'])
 
+        # AQUAVis_T<sentinel_tile_name>YYYYMMDDTHHMMSS<product_specification>_<band>_v1.0
         if params["sat"] == 'landsat':
-            basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{landsat_tile}_{params["ncode"]}_v1.0_{band_nmi}.tif'
-            cloudname = f'HLS_T{params["sen_tile_target"]}_{date_time}_{landsat_tile}_{params["ncode"]}_v1.0_CLOUD.tif'
+            basefilename = f'AQUAVis_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_{band_nmi}_v1.0.tif'
+            cloudname = f'AQUAVis_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_QAflag_v1.0.tif'
         else:
-            basefilename = f'HLS_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_v1.0_{band_nmi}.tif'  ## HLS.T17SLU.2020209T155956.L30.v1.5.B01.tif
-            cloudname = f'HLS_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_v1.0_CLOUD.tif'
+            basefilename = f'AQUAVis_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_{band_nmi}_v1.0.tif'
+            cloudname = f'AQUAVis_T{params["sen_tile_target"]}_{date_time}_{params["ncode"]}_QAflag_v1.0.tif'
 
         out_base_dir_nm = fr"{out_dir_hls}\{basefilename}"
 
@@ -127,11 +128,19 @@ def gen_hls(scene_path, params):
         convert_float_to_int16(file_bandi, out_base_dir_nm, params, scale_factor=10000, nodata=-9999)
 
     # Save cloud information as a band
-    cloud_path = os.path.join(params["output_dir"], "atmcor", "landsat", os.path.basename(params["output_dir"]), os.path.basename(scene_path), "SatClouds", "temp", "cloud.tif")
-    destination_path = os.path.join(out_dir_hls, cloudname)
-
     try:
-        shutil.copy(cloud_path, destination_path)
+        if params["sat"] == 'landsat':
+            cloud_path = os.path.join(params["output_dir"], "atmcor", "landsat", os.path.basename(params["output_dir"]), os.path.basename(scene_path), "SatClouds", "temp", "cloud.tif")
+            destination_path = os.path.join(out_dir_hls, cloudname)
+            shutil.copy(cloud_path, destination_path)
+        else:
+            cloud_path = os.path.join(params["output_dir"], "atmcor", "landsat", os.path.basename(params["output_dir"]), os.path.basename(scene_path), "SatClouds", "temp", "cloud10.tif")
+            destination_path = os.path.join(out_dir_hls, cloudname)
+
+            data = rioxarray.open_rasterio(cloud_path)
+            resampled_data = data.rio.reproject(data.rio.crs, resolution=(30, 30), resampling=Resampling.bilinear)
+            resampled_data.rio.to_raster(destination_path)
+
     except:
         print(f"No cloud information found for scene {scene_path}")
 
@@ -154,7 +163,7 @@ def run(params):
         params['sen_tile_target'] = sen_tile_target
 
         # Create the output directory if it does not exist
-        params['output_dir_hls'] = fr'{params["output_dir"]}\hlswater'
+        params['output_dir_hls'] = fr'{params["output_dir"]}\AQUAVis_Product'
         os.makedirs(fr'{params["output_dir_hls"]}', exist_ok=True)
 
         if sat == 'landsat':
@@ -170,9 +179,6 @@ def run(params):
         params["sat"] = sat
 
         n_params = [params] * len(scenes)
-
-        # for scene in scenes:
-        #     gen_hls(scene, params)
 
         with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
             results = pool.starmap_async(gen_hls, zip(scenes, n_params)).get()
@@ -202,5 +208,7 @@ def run(params):
                 shutil.rmtree(atmcor_folder)
                 shutil.rmtree(tiling_folder)
                 shutil.rmtree(temp_folder)
+
         except:
+
             pass

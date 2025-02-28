@@ -1,4 +1,4 @@
-from src.run_satwater import run_satwater
+from src.run_aquavis import run_satwater
 
 # Define parameters
 select_sat = 'sentinel'

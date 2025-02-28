@@ -5,7 +5,7 @@ import logging
 import pandas as pd
 from multiprocessing import Pool
 from typing import List, Tuple
-from src.satwater.atmcor.gceratmos_hls.run_gceratmos import run_gceratmos
+from src.satwater.atmcor.atmcor_water.run_atmcor_water import run_gceratmos
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -1,6 +1,6 @@
-from src.satwater.atmcor.gceratmos_hls.gceratmos import Gceratmos
+from src.satwater.atmcor.atmcor_water.atmcor_water import Gceratmos
 from src.satwater.water_mask.WaterMaskClass import WaterMaskClass
-from src.satwater.atmcor.gceratmos_hls.cloud.SatClouds.satclouds import Satcloud
+from src.satwater.atmcor.atmcor_water.cloud.SatClouds.satclouds import Satcloud
 
 def run_gceratmos(path_main, path_dest, satellite, aero_type="Maritime", path_roi=None):
 
