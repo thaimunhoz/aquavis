@@ -70,7 +70,6 @@ class Gceratmos:
                 corr = Correction(meta, atmos_param, arr, index)
                 corr.run()
                 arr_c = np.where(corr.arr_sr < 0, -9999, corr.arr_sr) # NaN value.
-                print(arr_c)
 
                 aux_folder = tool.newdirectory(dest, 'tempdir2')
                 tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.TIF', aux_folder)
@@ -80,13 +79,18 @@ class Gceratmos:
             xda_swir = rxr.open_rasterio(swir_band[0])
 
             for band in meta.bandname:
-                xda_band = rxr.open_rasterio(os.path.join(aux_folder, band[0:-4] + '.TIF'))
-                swir_match = xda_swir.rio.reproject_match(xda_band)
-                glint_corr = np.where((xda_band - swir_match) <= 0, xda_band, (xda_band - swir_match))
 
-                glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+                if 'B11' in band:
+                    xda_band = rxr.open_rasterio(os.path.join(aux_folder, band[0:-4] + '.TIF'))
+                    xda_band.rio.to_raster(dest + '/' + band[0:-4] + '.TIF')
+                else:
+                    xda_band = rxr.open_rasterio(os.path.join(aux_folder, band[0:-4] + '.TIF'))
+                    swir_match = xda_swir.rio.reproject_match(xda_band)
+                    glint_corr = np.where((xda_band - swir_match) <= 0, xda_band, (xda_band - swir_match))
 
-                glint_corr_data.rio.to_raster(dest + '/' + band[0:-4] + '.TIF')
+                    glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+
+                    glint_corr_data.rio.to_raster(dest + '/' + band[0:-4] + '.TIF')
 
             tool.export_meta(meta, dest)
             shutil.rmtree(tempdir)
@@ -138,12 +142,17 @@ class Gceratmos:
 
             for band in meta.bandname:
 
-                xda_band = rxr.open_rasterio(os.path.join(aux_folder, self.path_main[-40:], band[0:-4] + '.TIF'))
-                glint_corr = np.where((xda_band - xda_swir) <= 0, xda_band, (xda_band - xda_swir))
+                if 'B6' in band or 'B7' in band or 'B8' in band:
+                    xda_band = rxr.open_rasterio(os.path.join(aux_folder, self.path_main[-40:], band[0:-4] + '.TIF'))
+                    xda_band.rio.to_raster(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF')
 
-                glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+                else:
+                    xda_band = rxr.open_rasterio(os.path.join(aux_folder, self.path_main[-40:], band[0:-4] + '.TIF'))
+                    glint_corr = np.where((xda_band - xda_swir) <= 0, xda_band, (xda_band - xda_swir))
 
-                glint_corr_data.rio.to_raster(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF')
+                    glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+
+                    glint_corr_data.rio.to_raster(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF')
 
             tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main[-40:]))
 
