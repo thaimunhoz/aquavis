@@ -31,7 +31,7 @@ def convert_float_to_int16(input_raster, output_raster, params, scale_factor=100
         # Output in rho or rrs:
         if params['aux_info']['output_type'] == 'rho':
             arr = arr # surface reflectance
-            arr *= scale_factor
+            #arr *= scale_factor
         else:
             arr = arr/np.pi # Rrs
 

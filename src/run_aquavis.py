@@ -1,5 +1,5 @@
 import logging
-from src.satwater import build_satwater
+from src.satwater import build_aquavis
 from src.satwater.input_gee import toa_gee
 
 def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, output_dir: str, keep_atmcor: str, input_toa: str, brdf_corr: str, output_type: str) -> None:
@@ -54,17 +54,17 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
 
     # Initialize SatWater object
     try:
-        SatWater_i = build_satwater.SatWater(select_sat, params)
+        SatWater_i = build_aquavis.SatWater(select_sat, params)
     except Exception as e:
         logging.error(f"Failed to initialize SatWater: {e}")
         raise
 
     # Run processing steps
-    if input_toa == "GEE":
-        SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
-
-    else:
-        SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
+    # if input_toa == "GEE":
+    #     SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
+    #
+    # else:
+    #     SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
     if select_sat == "landsat":
         SatWater_i.run_tiling() # 2. Tiling for Landsat

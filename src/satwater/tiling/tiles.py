@@ -112,10 +112,14 @@ def run(select_sat: str, params: dict) -> None:
             landsat_path = os.path.join(params['output_dir'], 'atmcor', 'landsat', sentinel_tile)
             landsat_scenes = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
 
+            # Process Landsat scenes sequentially
+            for scene in landsat_scenes:
+                gen_tiles(scene, params)
+
             # Process Landsat scenes in parallel
-            with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-                pool.starmap(gen_tiles, [(scene, params) for scene in landsat_scenes])
-                pool.close()
+            # with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+            #     pool.starmap(gen_tiles, [(scene, params) for scene in landsat_scenes])
+            #     pool.close()
 
             print(f"Completed processing for Sentinel tile: {sentinel_tile}")
 

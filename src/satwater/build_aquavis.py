@@ -6,7 +6,7 @@ from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
 from src.satwater.atmcor import atm6s as atmcor
 from src.satwater.tiling import tiles as tiling
 from src.satwater.tiling import resample as resample
-from .aquavis_product_generator import generate_aquavis as hlswater
+from .aquavis_product_generator import generate_aquavis as aquavis
 from .visualization import plot_images as visualization
 
 class SatWater(object):
@@ -98,23 +98,12 @@ class SatWater(object):
             logging.error(f"Error during resampling: {e}")
             raise
 
-    def run_glint(self) -> None:
-        """
-        Apply glint correction to the images.
-        """
-        try:
-            glintcorr.run(self.params)
-            logging.info("Glint correction completed successfully.")
-        except Exception as e:
-            logging.error(f"Error during glint correction: {e}")
-            raise
-
     def run_hlswater(self) -> None:
         """
         Generate synthetic HLS water images.
         """
         try:
-            hlswater.run(self.params)
+            aquavis.run(self.params)
             logging.info("HLS water image generation completed successfully.")
         except Exception as e:
             logging.error(f"Error during HLS water generation: {e}")

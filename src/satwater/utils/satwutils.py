@@ -2,6 +2,7 @@ import os
 import os.path
 import rasterio
 import rioxarray
+import numpy as np
 import xarray as xr
 import rioxarray as rxr
 import geopandas as gpd
@@ -90,6 +91,10 @@ def cut_images_res(path_original, shapefile_tile, path_output, spatialres):
     geometries = [mapping(geom) for geom in shapefile.geometry]
     clipped_data = data.rio.clip(geometries, shapefile.crs, drop=True)
 
+    # Get the bounds of the Sentinel tile
+    sentinel_bounds = shapefile.geometry.total_bounds
+    minx, miny, maxx, maxy = sentinel_bounds
+
     # Resample the raster to the desired resolution
     resampled_data = clipped_data.rio.reproject(
         data.rio.crs,
@@ -97,8 +102,35 @@ def cut_images_res(path_original, shapefile_tile, path_output, spatialres):
         resampling=Resampling.bilinear
     )
 
-    # Save to the output file
-    resampled_data.rio.to_raster(path_output)
+    # Reproject to the exact extent of the Sentinel tile
+    resampled_data = resampled_data.rio.reproject(
+        shape=(int((maxy - miny) / spatialres), int((maxx - minx) / spatialres)),
+        transform=rioxarray.rasterio.transform.from_origin(maxx, maxy, spatialres, spatialres),
+        resampling=Resampling.bilinear
+    )
+
+    # Create an empty array with the Sentinel tile's dimensions
+    empty_array = np.full(
+        (resampled_data.shape[1], resampled_data.shape[2]),
+        np.nan  # Or use 0 or another value depending on the context
+    )
+
+    # Get the indices of the clipped data within the bounds of the Sentinel tile
+    clipped_x_start = int((minx - resampled_data.rio.transform[2]) / spatialres)
+    clipped_y_start = int((maxy - resampled_data.rio.transform[5]) / spatialres)
+    clipped_x_end = clipped_x_start + resampled_data.shape[2]
+    clipped_y_end = clipped_y_start + resampled_data.shape[1]
+
+    # Fill the empty array with the clipped data
+    empty_array[clipped_y_start:clipped_y_end, clipped_x_start:clipped_x_end] = resampled_data.values[0]
+
+    # Create a new xarray DataArray with the filled empty_array
+    result = rioxarray.open_rasterio(path_original).copy()
+    result.values = empty_array
+    result.rio.write_crs(shapefile.crs, inplace=True)
+
+    # Save the final image
+    result.rio.to_raster(path_output)
 
 def create_dir(path):
 
