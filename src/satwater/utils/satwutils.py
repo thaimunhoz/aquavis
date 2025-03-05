@@ -77,7 +77,6 @@ def reproject(src_file, dst_file, epsg_num):
 
 def cut_images_res(path_original, shapefile_tile, path_output, spatialres):
 
-    # Load the shapefile
     try:
         shapefile = gpd.read_file(shapefile_tile)
     except:
@@ -92,41 +91,46 @@ def cut_images_res(path_original, shapefile_tile, path_output, spatialres):
     clipped_data = data.rio.clip(geometries, shapefile.crs, drop=True)
 
     # Get the bounds of the Sentinel tile
-    sentinel_bounds = shapefile.geometry.total_bounds
-    minx, miny, maxx, maxy = sentinel_bounds
+    minx, miny, maxx, maxy = shapefile.total_bounds
 
-    # Resample the raster to the desired resolution
+    # Create a target transform
+    transform = rasterio.transform.from_origin(minx, maxy, spatialres, spatialres)
+    out_shape = (int((maxy - miny) / spatialres), int((maxx - minx) / spatialres))
+
+    # Reproject to match the tile extent
     resampled_data = clipped_data.rio.reproject(
-        data.rio.crs,
-        resolution=(spatialres, spatialres),
+        dst_crs=shapefile.crs,
+        shape=out_shape,
+        transform=transform,
         resampling=Resampling.bilinear
     )
 
-    # Reproject to the exact extent of the Sentinel tile
-    resampled_data = resampled_data.rio.reproject(
-        shape=(int((maxy - miny) / spatialres), int((maxx - minx) / spatialres)),
-        transform=rioxarray.rasterio.transform.from_origin(maxx, maxy, spatialres, spatialres),
-        resampling=Resampling.bilinear
+    # Create an empty array with the Sentinel tile's dimensions (with NoData values)
+    empty_array = np.full((1, *out_shape), -9999, dtype=resampled_data.dtype)
+
+    # Compute valid indices for insertion
+    affine_transform = resampled_data.rio.transform()
+    clipped_x_start = max(0, int((resampled_data.x[0] - minx) / spatialres))
+    clipped_y_start = max(0, int((maxy - resampled_data.y[0]) / spatialres))
+
+    # Determine end indices
+    clipped_x_end = min(out_shape[1], clipped_x_start + resampled_data.shape[2])
+    clipped_y_end = min(out_shape[0], clipped_y_start + resampled_data.shape[1])
+
+    # Insert data into the empty array
+    empty_array[:, clipped_y_start:clipped_y_end, clipped_x_start:clipped_x_end] = \
+        resampled_data.values[:, :clipped_y_end - clipped_y_start, :clipped_x_end - clipped_x_start]
+
+    empty_array[empty_array <= 0] = -9999
+
+    # Convert back to DataArray
+    result = xr.DataArray(
+        empty_array,
+        dims=resampled_data.dims,
+        coords=resampled_data.coords,
+        attrs=resampled_data.attrs
     )
 
-    # Create an empty array with the Sentinel tile's dimensions
-    empty_array = np.full(
-        (resampled_data.shape[1], resampled_data.shape[2]),
-        np.nan  # Or use 0 or another value depending on the context
-    )
-
-    # Get the indices of the clipped data within the bounds of the Sentinel tile
-    clipped_x_start = int((minx - resampled_data.rio.transform[2]) / spatialres)
-    clipped_y_start = int((maxy - resampled_data.rio.transform[5]) / spatialres)
-    clipped_x_end = clipped_x_start + resampled_data.shape[2]
-    clipped_y_end = clipped_y_start + resampled_data.shape[1]
-
-    # Fill the empty array with the clipped data
-    empty_array[clipped_y_start:clipped_y_end, clipped_x_start:clipped_x_end] = resampled_data.values[0]
-
-    # Create a new xarray DataArray with the filled empty_array
-    result = rioxarray.open_rasterio(path_original).copy()
-    result.values = empty_array
     result.rio.write_crs(shapefile.crs, inplace=True)
 
     # Save the final image
