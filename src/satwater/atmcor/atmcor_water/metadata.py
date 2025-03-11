@@ -3,6 +3,7 @@ import glob
 import calendar
 import numpy as np
 import pandas as pd
+import rioxarray as rxr
 from src.satwater.atmcor.atmcor_water import toolbox as tool
 from datetime import datetime, timedelta
 from src.satwater.atmcor.atmcor_water.atm.coefficient import MCDExtractWindow
@@ -282,20 +283,35 @@ class Metadata_OLI_L89:
         # It considers the angle averages of the scene.
         # The band 4 (red) is used as reference because it is near the center of the OLI/Landsat-8/9 focal plane.
 
-        import l8angles
+        solar_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SAA.TIF'))[0]).values.astype(float)
+        solar_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SZA.TIF'))[0]).values.astype(float)
+        view_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VAA.TIF'))[0]).values.astype(float)
+        view_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VZA.TIF'))[0]).values.astype(float)
 
-        path = [i for i in glob.glob(os.path.join(self.path_main, '*.txt')) if self.ANG_ID in i]
-        solar = l8angles.calculate_angles(path[0], angle_type='SOLAR', subsample=1, bands=[4])
-        view = l8angles.calculate_angles(path[0], angle_type='SATELLITE', subsample=1, bands=[4])
+        solar_az[(solar_az == 0) | (solar_az == -9999)] = np.nan
+        solar_zen[(solar_zen == 0) | (solar_zen == -9999)] = np.nan
+        view_az[(view_az == 0) | (view_az == -9999)] = np.nan
+        view_zen[(view_zen == 0) | (view_zen == -9999)] = np.nan
+
+        # import l8angles
+        #
+        # path = [i for i in glob.glob(os.path.join(self.path_main, '*.txt')) if self.ANG_ID in i]
+        # solar = l8angles.calculate_angles(path[0], angle_type='SOLAR', subsample=1, bands=[4])
+        # view = l8angles.calculate_angles(path[0], angle_type='SATELLITE', subsample=1, bands=[4])
 
         for i in range(0, 8):
 
             output = {}
 
-            output['solar_az'] = np.mean(solar['sun_az'][0][~np.isnan(solar['sun_az'][0])])
-            output['solar_zn'] = np.mean(solar['sun_zn'][0][~np.isnan(solar['sun_zn'][0])])
-            output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
-            output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
+            output['solar_az'] = np.mean(solar_az[~np.isnan(solar_az)]) / 100
+            output['solar_zn'] = np.mean(solar_zen[~np.isnan(solar_zen)]) / 100
+            output['view_az'] = np.mean(view_az[~np.isnan(view_az)]) / 100
+            output['view_zn'] = np.mean(view_zen[~np.isnan(view_zen)]) / 100
+
+            # output['solar_az'] = np.mean(solar['sun_az'][0][~np.isnan(solar['sun_az'][0])])
+            # output['solar_zn'] = np.mean(solar['sun_zn'][0][~np.isnan(solar['sun_zn'][0])])
+            # output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
+            # output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
 
             #print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
 

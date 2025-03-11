@@ -77,6 +77,7 @@ class Gceratmos:
             # Glint correction based SWIR subtraction:
             swir_band = [i for i in glob.glob(os.path.join(aux_folder, '*B11.TIF'))]
             xda_swir = rxr.open_rasterio(swir_band[0])
+            xda_swir = xda_swir.where(xda_swir >= 0, 0)
 
             for band in meta.bandname:
 
@@ -139,6 +140,7 @@ class Gceratmos:
             # Glint correction based SWIR subtraction:
             swir_band = [i for i in glob.glob(os.path.join(aux_folder, self.path_main[-40:], '*B6.TIF'))]
             xda_swir = rxr.open_rasterio(swir_band[0])
+            xda_swir = xda_swir.where(xda_swir >= 0, 0)
 
             for band in meta.bandname:
 
