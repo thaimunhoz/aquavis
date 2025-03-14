@@ -22,7 +22,7 @@ class Sentinel2:
 
         self.fmask_env = fmask_env # conda env */bin/python.exe
         self.path_img = path_img # path from safe dir
-        self.dest = dest # directory with images (*.TIFF)
+        self.dest = dest # directory with images (*.tifF)
 
         self.SHADOW_BUFFER_DISTANCE = 300
         self.CLOUD_BUFFER_DISTANCE = 600
@@ -59,7 +59,7 @@ class Sentinel2:
         }
         self.resample(pathxtempdir + '/cloud.tif', 20, pathxtempdir)
         self.resample(pathxtempdir + '/cloud.tif', 10, pathxtempdir)
-        paths = [band for band in glob.glob(os.path.join(self.dest, '*.TIF'))]
+        paths = [band for band in glob.glob(os.path.join(self.dest, '*.tif'))]
         print(paths)
         for path in paths:
             if '_B02' in path or '_B03' in path or '_B04' in path or '_B08' in path:
@@ -120,7 +120,7 @@ class Sentinel2:
         Exports a single band to dest.
         """
         filename_reference = reference
-        filename_out_factor = dest + '/' + index[0:-4] + '.TIF'
+        filename_out_factor = dest + '/' + index[0:-4] + '.tif'
         dataset_reference = gdal.Open(filename_reference)
 
         line = dataset_reference.RasterYSize

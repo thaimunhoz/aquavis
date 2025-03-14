@@ -36,11 +36,11 @@ def gen_resample(sentinel_scene, params):
 
         brdf.call_brdf_correction(imgtemp_dir, imgtemp_dir, 'sentinel')
 
-        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.TIF') if "brdf_corrected" in f]
+        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.tif') if "brdf_corrected" in f]
 
     else:
 
-        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.TIF') if "temp" in f]
+        images_brdf = [f for f in glob.glob(fr'{imgtemp_dir}\*.tif') if "temp" in f]
 
     i = 0
     images_brdf = sorted(images_brdf, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf')))

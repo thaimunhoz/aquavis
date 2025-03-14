@@ -2,12 +2,13 @@ import os
 import logging
 from typing import Optional, Dict, Any
 
-from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
 from src.satwater.atmcor import atm6s as atmcor
 from src.satwater.tiling import tiles as tiling
 from src.satwater.tiling import resample as resample
-from .aquavis_product_generator import generate_aquavis as aquavis
 from .visualization import plot_images as visualization
+from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
+from src.satwater.water_mask import WaterMaskClass
+from .aquavis_product_generator import generate_aquavis as aquavis
 
 class SatWater(object):
 
@@ -15,10 +16,9 @@ class SatWater(object):
     A class to manage and run the full SatWater processing chain.
 
     This includes:
-        - Atmospheric correction
+        - Atmospheric and glint correction
         - Image tiling (for Landsat images)
         - Image resampling (for Sentinel images)
-        - Glint correction
         - Synthetic HLS image generation
         - Visualization and true color composition
 
@@ -32,6 +32,8 @@ class SatWater(object):
     """
 
     def __init__(self, select_sat: Optional[str] = None, params: Optional[Dict[str, Any]] = None):
+
+        self.wm = WaterMaskClass()
         self.select_sat = select_sat
         self.params = params
 
@@ -96,6 +98,17 @@ class SatWater(object):
             logging.info("Resampling completed successfully.")
         except Exception as e:
             logging.error(f"Error during resampling: {e}")
+            raise
+
+    def run_water_mask(self) -> None:
+        """
+        Generate water masks using image-based approach.
+        """
+        try:
+            self.wm.run_water_mask(self.params)
+            logging.info("Water mask generation completed successfully.")
+        except Exception as e:
+            logging.error(f"Error during water mask generation: {e}")
             raise
 
     def run_hlswater(self) -> None:

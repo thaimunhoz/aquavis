@@ -22,7 +22,7 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
     landsat_bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']
     landsat_scene_all_bands = [
-        f for f in glob.glob(os.path.join(landsat_scene, '*LC*', '*_B*.TIF')) if
+        f for f in glob.glob(os.path.join(landsat_scene, '*LC*', '*_B*.tif')) if
         any(band in f for band in landsat_bands)
     ]
 
@@ -54,11 +54,11 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
         brdf.call_brdf_correction(imgtemp_dir, imgtemp_dir, 'landsat')
 
         path_out = imgtemp_dir
-        images_brdf = [f for f in glob.glob(fr'{path_out}\*.TIF') if "brdf_corrected" in f]
+        images_brdf = [f for f in glob.glob(fr'{path_out}\*.tif') if "brdf_corrected" in f]
 
     else:
         path_out = imgtemp_dir
-        images_brdf = [f for f in glob.glob(fr'{path_out}\*.TIF') if "temp" in f]
+        images_brdf = [f for f in glob.glob(fr'{path_out}\*.tif') if "temp" in f]
 
     # Clip and resample image to match Sentinel tile
     i = 0

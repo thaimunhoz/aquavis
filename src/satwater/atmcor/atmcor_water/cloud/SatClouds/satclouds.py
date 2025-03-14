@@ -6,7 +6,7 @@ and quality flag file (Sentinel-3/OLCI). To run this package are requested:
 
 */ path_img: path with TOA-images in S3X_OL_1_EFR____*.SEN3, S2X_MSIL1C_*.SAFE, and LC09_L1TP_*.
 */ sensor: sensor types, i.e., OLCI_S3, MSI_S2, or OLI_L89;
-*/ dest: path with images (*.TIFF). The default folder considers the atmospherically corrected images from GCERatmos.
+*/ dest: path with images (*.tifF). The default folder considers the atmospherically corrected images from GCERatmos.
 */ fmask_env: path with conda environment from fmask_env '.../anaconda3/envs/fmask_env/bin/python (or python.exe)'.
               This argument is requested only to Landsat-8/9/OLI and Sentinel-2/MSI.
 """
@@ -20,7 +20,7 @@ class Satcloud:
 
         self.path_img = path_img
         self.sensor = sensor
-        self.dest = dest # directory with images (*.TIFF).
+        self.dest = dest # directory with images (*.tifF).
         self.fmask_env = fmask_env
 
         self.SENTINEL3 = 'OLCI_S3'

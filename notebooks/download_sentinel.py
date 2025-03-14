@@ -77,7 +77,7 @@ request_all_bands = SentinelHubRequest(
 
         )
     ],
-    responses=[SentinelHubRequest.output_response("default", MimeType.TIF)],
+    responses=[SentinelHubRequest.output_response("default", MimeType.tif)],
     bbox=aoi_bbox,
     config=config,
 )

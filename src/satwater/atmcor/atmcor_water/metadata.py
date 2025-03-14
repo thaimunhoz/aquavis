@@ -300,10 +300,10 @@ class Metadata_OLI_L89:
         # It considers the angle averages of the scene.
         # The band 4 (red) is used as reference because it is near the center of the OLI/Landsat-8/9 focal plane.
 
-        solar_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SAA.TIF'))[0]).values.astype(float)
-        solar_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SZA.TIF'))[0]).values.astype(float)
-        view_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VAA.TIF'))[0]).values.astype(float)
-        view_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VZA.TIF'))[0]).values.astype(float)
+        solar_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SAA.tif'))[0]).values.astype(float)
+        solar_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SZA.tif'))[0]).values.astype(float)
+        view_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VAA.tif'))[0]).values.astype(float)
+        view_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VZA.tif'))[0]).values.astype(float)
 
         solar_az[(solar_az == 0) | (solar_az == -9999)] = np.nan
         solar_zen[(solar_zen == 0) | (solar_zen == -9999)] = np.nan

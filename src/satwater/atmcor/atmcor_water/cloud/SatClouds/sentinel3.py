@@ -21,7 +21,7 @@ class Sentinel3:
     def __init__(self, path_img, dest):
 
         self.path_img = path_img
-        self.dest = dest # directory with images (*.TIFF).
+        self.dest = dest # directory with images (*.tifF).
 
     def run(self):
         """
@@ -30,7 +30,7 @@ class Sentinel3:
         # Creates a new directory:
         pathxmain = self.newdirectory(self.dest, 'SatClouds')
         pathxtempdir = self.newdirectory(pathxmain, 'temp')
-        # Exports the qualityFlags.nc as .TIFF:
+        # Exports the qualityFlags.nc as .tifF:
         self.netcdf_to_geotiff(self.path_img, pathxtempdir)
         # Filters the cloud mask and glint risk:
         arr = self.loadarray(pathxtempdir + '/qualityFlags.tif', np.uint32)
@@ -98,7 +98,7 @@ class Sentinel3:
             xml = [line.replace('="Int32', '="Float32') for line in xml]
             with open(var_vrt, 'w') as f:
                 f.writelines(xml)
-            # Writing the lat/long .TIFF --temporary:
+            # Writing the lat/long .tifF --temporary:
             cmd = ['gdal_translate', '-unscale', var_vrt, var_tif]
             sub.call(cmd, stdout=sub.DEVNULL, stderr=sub.STDOUT)
         ds_nc.close()
@@ -137,7 +137,7 @@ class Sentinel3:
         # xml.insert(tail_index + 3, '    <Scale>{sc}</Scale>\n'.format(sc=scale))
         with open(data_vrt, 'w') as f:
             f.writelines(xml)
-        # Writing .TIFF from band:
+        # Writing .tifF from band:
         cmd = ['gdal_translate', '-unscale', data_vrt, data_vrt_tif]
         sub.call(cmd, stdout=sub.DEVNULL, stderr=sub.STDOUT)
         # Updating the GeoTransform:
@@ -170,7 +170,7 @@ class Sentinel3:
                 xml[xml.index(line)] = line.replace(os.sep, '/')
         with open(out_vrt, 'w') as f:
             f.writelines(xml)
-        # Converting the .VRT in .TIFF:
+        # Converting the .VRT in .tifF:
         cmd = ['gdalwarp', '-t_srs', 'epsg:4326', '-geoloc', '-srcnodata', str(nodata), '-dstnodata', '-9999', out_vrt,
                out_tif]
         sub.call(cmd, stdout=sub.DEVNULL, stderr=sub.STDOUT)
@@ -195,7 +195,7 @@ class Sentinel3:
         Exports a single band to dest.
         """
         filename_reference = reference
-        filename_out_factor = dest + '/' + index[0:-4] + '.TIF'
+        filename_out_factor = dest + '/' + index[0:-4] + '.tif'
         dataset_reference = gdal.Open(filename_reference)
 
         line = dataset_reference.RasterYSize

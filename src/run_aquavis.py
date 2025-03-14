@@ -60,17 +60,19 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
         raise
 
     # Run processing steps
-    # if input_toa == "GEE":
-    #     SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
-    #
-    # else:
-    #     SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
+    if input_toa == "GEE":
+        SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
+
+    else:
+        SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
     if select_sat == "landsat":
         SatWater_i.run_tiling() # 2. Tiling for Landsat
 
     elif select_sat == "sentinel":
         SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
+
+    SatWater_i.run_water_mask() # 4. Water mask generation
 
     SatWater_i.run_hlswater() # 5. HLS water generation
 

@@ -32,7 +32,7 @@ class Buffer_OLCI_S3:
         """
         # Water mask -- Oa06 and 0a21:
         arr = {}
-        band = [i for i in glob.glob(os.path.join(self.dest, '*.TIF')) if 'Oa06' in i or 'Oa21' in i]
+        band = [i for i in glob.glob(os.path.join(self.dest, '*.tif')) if 'Oa06' in i or 'Oa21' in i]
         try:
             for num, i in enumerate(band):
                 arr[num] = tool.loadarray(i)
@@ -44,7 +44,7 @@ class Buffer_OLCI_S3:
         buffer10km = self.buffer(self.path_roi, self.dest)
         # Crops the water mask to ROI:
         cut = self.cutbands(buffer10km, self.dest + '/' + self.WMASKID + '.tif', self.WMASKID + 'xroi', self.dest)
-        # Water mask from .TIFF to .SHP:
+        # Water mask from .tifF to .SHP:
         wmask_shp = self.rasterToshapefile(cut, self.dest)
         # Selects the land cover and export the NEW BUFFER:
         wmask_shp = gpd.read_file(wmask_shp)
@@ -62,7 +62,7 @@ class Buffer_OLCI_S3:
 
     def rasterToshapefile(self, raster, dest: str) -> str:
             """
-            Converts raster (.TIFF) to shapefile (.shp).
+            Converts raster (.tifF) to shapefile (.shp).
             """
             src_ds = gdal.Open(raster)
             srcband = src_ds.GetRasterBand(1)
@@ -121,9 +121,9 @@ class Buffer_MSI_S2:
         # Water mask -- B3 and B12:
         arr = {}
 
-        self.resample([i for i in glob.glob(os.path.join(self.dest, '*.TIF')) if 'B12' in i][0], 10)
+        self.resample([i for i in glob.glob(os.path.join(self.dest, '*.tif')) if 'B12' in i][0], 10)
 
-        band = [i for i in glob.glob(os.path.join(self.dest, '*.TIF')) if 'B03' in i or 'B12_resamp' in i]
+        band = [i for i in glob.glob(os.path.join(self.dest, '*.tif')) if 'B03' in i or 'B12_resamp' in i]
 
         for num, i in enumerate(band):
             with rasterio.open(i) as src:
@@ -142,7 +142,7 @@ class Buffer_MSI_S2:
 
         index = self.WMASKID + 'xxxx'
 
-        with rasterio.open(self.dest + '/' + index[0:-4] + '.TIF', "w", **out_meta) as dest:
+        with rasterio.open(self.dest + '/' + index[0:-4] + '.tif', "w", **out_meta) as dest:
             dest.write(wmask, 1)
 
         #tool.export(wmask, self.WMASKID + 'xxxx', band[0], self.dest)
@@ -155,8 +155,8 @@ class Buffer_MSI_S2:
         cut = self.cutbands(buffer10km, self.dest + '/' + self.WMASKID + '.tif', self.WMASKID + 'xroi', self.dest)
         self.resample(cut, 300)
 
-        # Water mask from .TIFF to .SHP:
-        wmask_shp = self.rasterToshapefile(cut[:-4] + '_resamp.TIF', self.dest, src.crs['init'])
+        # Water mask from .tifF to .SHP:
+        wmask_shp = self.rasterToshapefile(cut[:-4] + '_resamp.tif', self.dest, src.crs['init'])
 
         # Selects the land cover and export the NEW BUFFER:
         wmask_shp = gpd.read_file(wmask_shp)
@@ -180,7 +180,7 @@ class Buffer_MSI_S2:
 
     def rasterToshapefile(self, raster, dest: str, crs) -> str:
             """
-            Converts raster (.TIFF) to shapefile (.shp).
+            Converts raster (.tifF) to shapefile (.shp).
             """
             src_ds = gdal.Open(raster)
             srcband = src_ds.GetRasterBand(1)
@@ -224,7 +224,7 @@ class Buffer_MSI_S2:
         """
         Re-samples the pixel size to 10 m.
         """
-        gdal.Warp(filename[:-4] + '_resamp.TIF', filename, xRes=res, yRes=res, resampleAlg='bilinear')
+        gdal.Warp(filename[:-4] + '_resamp.tif', filename, xRes=res, yRes=res, resampleAlg='bilinear')
         return None
 
 
@@ -247,7 +247,7 @@ class Buffer_OLI_L89:
         """
         # Water mask -- B3 and B7:
         arr = {}
-        band = [i for i in glob.glob(os.path.join(self.path_main, '*.TIF')) if 'B3' in i or 'B7' in i]
+        band = [i for i in glob.glob(os.path.join(self.path_main, '*.tif')) if 'B3' in i or 'B7' in i]
         try:
             for num, i in enumerate(band):
                 #arr[num] = tool.loadarray(i)
@@ -268,7 +268,7 @@ class Buffer_OLI_L89:
             #wmask_uint16 = wmask.astype('uint16')
 
             index = self.WMASKID + 'xxxx'
-            with rasterio.open(self.dest + '/' + index[0:-4] + '.TIF', "w", **out_meta) as dest:
+            with rasterio.open(self.dest + '/' + index[0:-4] + '.tif', "w", **out_meta) as dest:
                 dest.write(wmask, 1)
             #tool.export(wmask, self.WMASKID + 'xxxx', band[0], self.dest)
 
@@ -279,7 +279,7 @@ class Buffer_OLI_L89:
         buffer10km = self.buffer(self.path_roi, self.dest, src.crs)
         # Crops the water mask to ROI:
         cut = self.cutbands(buffer10km, self.dest + '/' + self.WMASKID + '.tif', self.WMASKID + 'xroi', self.dest)
-        # Water mask from .TIFF to .SHP:
+        # Water mask from .tifF to .SHP:
         wmask_shp = self.rasterToshapefile(cut, self.dest, src.crs['init'])
         # Selects the land cover and export the NEW BUFFER:
         #wmask_shp = gpd.read_file(wmask_shp)
@@ -299,7 +299,7 @@ class Buffer_OLI_L89:
 
     def rasterToshapefile(self, raster, dest: str, crs) -> str:
             """
-            Converts raster (.TIFF) to shapefile (.shp).
+            Converts raster (.tifF) to shapefile (.shp).
             """
             with rasterio.open(raster) as src:
                 image_arr = src.read(1)

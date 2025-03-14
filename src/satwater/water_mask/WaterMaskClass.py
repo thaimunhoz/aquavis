@@ -1,18 +1,14 @@
 import os
-import ee
-import geemap
 import logging
 import rasterio
 import numpy as np
+import multiprocessing
 import geopandas as gpd
 import rioxarray as rxr
-from typing import Optional
 from rasterio.crs import CRS
-from rasterio.mask import mask
-from rasterio.merge import merge
+from shapely.geometry import shape
 from rasterio.features import shapes
 from rasterio.transform import Affine
-from shapely.geometry import box, shape
 from rasterio.features import rasterize
 
 # Configure logging
@@ -83,7 +79,7 @@ class WaterMaskClass:
             np.ndarray: Water mask array.
         """
 
-        band_path = [i for i in os.listdir(img_path) if i.endswith(".TIF")]
+        band_path = [i for i in os.listdir(img_path) if i.endswith(".tif")]
         green_band = next((band for band in band_path if "B3" in band or "B03" in band), None)
         swir_band = next((band for band in band_path if "B11" in band), (band for band in band_path if "B6" in band or "B06" in band))
 
@@ -108,7 +104,7 @@ class WaterMaskClass:
 
         return water_shp_buffered
 
-    def clip_water(self, img_path: str, dest_path: str) -> None:
+    def clip_water(self, img_path: str, params) -> None:
 
         """
         Return only the water extend as valid observation. Land pixels are set no value.
@@ -119,14 +115,13 @@ class WaterMaskClass:
             clipped water images
         """
 
-        files = [folder for folder in os.listdir(img_path) if os.path.isdir(os.path.join(img_path, folder)) and "SatCloud" not in folder][0]
+        files = [folder for folder in os.listdir(img_path) if os.path.isdir(os.path.join(img_path, folder))][0]
 
         img_path = os.path.join(img_path, files)
-        water_shp_buffered = self.get_mask_water(img_path)
-        band_paths = [i for i in os.listdir(img_path) if i.endswith(".TIF")]
 
-        swir_band = next((band for band in band_paths if "B11" in band), (band for band in band_paths if "B06" in band or "B6" in band))
-        xda_swir = rxr.open_rasterio(os.path.join(img_path, swir_band))
+        water_shp_buffered = self.get_mask_water(img_path)
+
+        band_paths = [i for i in os.listdir(img_path) if i.endswith(".tif")]
 
         for band in band_paths:
 
@@ -145,16 +140,57 @@ class WaterMaskClass:
                     dtype="uint8"
                 )
 
-                # Apply glint correction based on SWIR subtraction
-                glint_corr = np.where((band_data - xda_swir) < 0, band_data, (band_data - xda_swir))
-
-                masked_band = np.where(water_raster == 1, glint_corr, -9999)
+                masked_band = np.where(water_raster == 1, band_data, -9999)
 
                 profile = src.profile
                 profile.update(dtype=band_data.dtype, nodata=src.nodata)
 
                 # Save clipped image
-                output_path = os.path.join(dest_path, os.path.basename(band))
+                output_path = os.path.join(params['output_dir_wm'], os.path.basename(params['output_dir_wm']), os.path.basename(band))
 
                 with rasterio.open(output_path, "w", **profile) as dst:
                     dst.write(masked_band, 1)
+
+    def run_water_mask(self, params):
+
+        """
+        Runs a given set of parameters to initiate a selection process for satellite data.
+        """
+
+        sat = params['aux_info']['sat_name']
+
+        if sat == 'landsat':
+            sen_tiles = [params[sat]['tiles']]
+        else:
+            sen_tiles = [params['sentinel']['tiles']]
+
+        for sen_tile_target in sen_tiles:
+
+            params['sen_tile_target'] = sen_tile_target
+
+            # Create the output directory if it does not exist
+            params['output_dir_wm'] = fr'{params["output_dir"]}\water_mask'
+            os.makedirs(fr'{params["output_dir_wm"]}', exist_ok=True)
+
+            if sat == 'landsat':
+                ncode = 'L30'
+                path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\landsat'
+                scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
+            else:
+                ncode = 'S30'
+                path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\sentinel'
+                scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
+
+            params['ncode'] = ncode
+            params["sat"] = sat
+
+            n_params = [params] * len(scenes)
+
+            # Process water mask extraction
+            for scene in scenes:
+                self.clip_water(scene, params)
+
+            # with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+            #     results = pool.starmap_async(self.clip_water, zip(scenes, n_params)).get()
+            #     print(results)
+            #     pool.close()

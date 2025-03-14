@@ -168,11 +168,11 @@ def run(params):
 
         if sat == 'landsat':
             ncode = 'L30'
-            path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\landsat'
+            path_pr = fr'{params["output_dir_wm"]}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
         else:
             ncode = 'S30'
-            path_pr = fr'{params["output_dir"]}\tiling\{params["sen_tile_target"]}\sentinel'
+            path_pr = fr'{params["output_dir_wm"]}'
             scenes = [fr'{path_pr}\{i}' for i in os.listdir(path_pr)]
 
         params['ncode'] = ncode
@@ -188,6 +188,7 @@ def run(params):
         atmcor_folder = fr'{params["output_dir"]}\atmcor'
         tiling_folder = fr'{params["output_dir"]}\tiling'
         temp_folder = fr'{params["output_dir"]}\temp'
+        wm_folder = fr'{params["output_dir"]}\water_mask'
 
         # Clean folders
         try:
@@ -195,19 +196,23 @@ def run(params):
 
                 os.chmod(tiling_folder, 0o777)
                 os.chmod(temp_folder, 0o777)
+                os.chmod(wm_folder, 0o777)
 
                 shutil.rmtree(tiling_folder)
                 shutil.rmtree(temp_folder)
+                shutil.rmtree(wm_folder)
 
             else:
 
                 os.chmod(atmcor_folder, 0o777)
                 os.chmod(tiling_folder, 0o777)
                 os.chmod(temp_folder, 0o777)
+                os.chmod(wm_folder, 0o777)
 
                 shutil.rmtree(atmcor_folder)
                 shutil.rmtree(tiling_folder)
                 shutil.rmtree(temp_folder)
+                shutil.rmtree(wm_folder)
 
         except:
 

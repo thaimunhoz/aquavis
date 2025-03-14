@@ -157,12 +157,12 @@ def call_brdf_correction(img_path, output_path, satellite):
     if satellite == "landsat":
 
         bands = ["B1", "B2", "B3", "B4", "B5"]
-        swir_band = [f for f in glob.glob(fr'{img_path}\*.TIF') if "B6" in f][0]
+        swir_band = [f for f in glob.glob(fr'{img_path}\*.tif') if "B6" in f][0]
     else:
         bands = ["B01", "B02", "B03", "B04", "B8A"]
-        swir_band = [f for f in glob.glob(fr'{img_path}\*.TIF') if "B11" in f][0]
+        swir_band = [f for f in glob.glob(fr'{img_path}\*.tif') if "B11" in f][0]
 
-    images_list = [f for f in glob.glob(fr'{img_path}\*.TIF') if any(band in f for band in bands)]
+    images_list = [f for f in glob.glob(fr'{img_path}\*.tif') if any(band in f for band in bands)]
     images_list = sorted(images_list, key=lambda x: next((i for i, band in enumerate(bands) if band in x), float('inf')))
 
     img_list = []

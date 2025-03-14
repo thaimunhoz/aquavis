@@ -100,7 +100,7 @@ class Gceratmos_gee:
                 }
 
                 # Write the corrected array to a new GeoTIFF
-                with rasterio.open(aux_folder + '/' + self.path_main + '_' + band + '.TIF', "w", **out_meta) as dest:
+                with rasterio.open(aux_folder + '/' + self.path_main + '_' + band + '.tif', "w", **out_meta) as dest:
                     dest.write(arr_c)
 
             # Glint correction based SWIR subtraction:
@@ -179,7 +179,7 @@ class Gceratmos_gee:
                 }
 
                 # Write the corrected array to a new GeoTIFF
-                with rasterio.open(tool.newdirectory(aux_folder, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF', "w",**out_meta) as dest:
+                with rasterio.open(tool.newdirectory(aux_folder, self.path_main[-40:]) + '/' + band[0:-4] + '.tif', "w",**out_meta) as dest:
                     dest.write(arr_c, 1)
 
             # Glint correction based SWIR subtraction:

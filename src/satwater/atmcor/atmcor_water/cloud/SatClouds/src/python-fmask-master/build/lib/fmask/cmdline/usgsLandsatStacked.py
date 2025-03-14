@@ -120,14 +120,14 @@ def makeStacksAndAngles(cmdargs):
     landsat = mtlInfo['SPACECRAFT_ID'][-1]
     
     if landsat == '4' or landsat == '5':
-        refWildcard = 'L*_B[1,2,3,4,5,7].TIF'
-        thermalWildcard = 'L*_B6.TIF'
+        refWildcard = 'L*_B[1,2,3,4,5,7].tif'
+        thermalWildcard = 'L*_B6.tif'
     elif landsat == '7':
-        refWildcard = 'L*_B[1,2,3,4,5,7].TIF'
-        thermalWildcard = 'L*_B6_VCID_?.TIF'
+        refWildcard = 'L*_B[1,2,3,4,5,7].tif'
+        thermalWildcard = 'L*_B6_VCID_?.tif'
     elif landsat in ('8', '9'):
-        refWildcard = 'LC*_B[1-7,9].TIF'
-        thermalWildcard = 'LC*_B1[0,1].TIF'
+        refWildcard = 'LC*_B[1-7,9].tif'
+        thermalWildcard = 'LC*_B1[0,1].tif'
     else:
         raise SystemExit('Unsupported Landsat sensor')
 
