@@ -1,9 +1,9 @@
 import os
 import glob
-import shutil
 import warnings
 import rasterio
 import numpy as np
+import rioxarray as rxr
 
 from src.satwater.input_gee import toa_gee
 from src.satwater.atmcor_gee.atmcor_water_gee import toolbox_gee as tool
@@ -67,6 +67,8 @@ class Gceratmos_gee:
             bands_index = [1, 2, 3, 8, 11]
             bands_name = ['B2', 'B3', 'B4', 'B8A', 'B11']
 
+            aux_folder = tool.newdirectory(self.path_dest, 'tempdir2')
+
             for index, band in enumerate(bands_name):
 
                 if band == 'B8A' or band == 'B11':
@@ -98,9 +100,30 @@ class Gceratmos_gee:
                 }
 
                 # Write the corrected array to a new GeoTIFF
-                output_path = tool.newdirectory(self.path_dest, self.path_main) + '/' + self.path_main + '_' + band + '.TIF'
-                with rasterio.open(output_path, "w", **out_meta) as dest:
+                with rasterio.open(aux_folder + '/' + self.path_main + '_' + band + '.TIF', "w", **out_meta) as dest:
                     dest.write(arr_c)
+
+            # Glint correction based SWIR subtraction:
+            swir_band = [i for i in glob.glob(os.path.join(aux_folder, '*B11.tif'))]
+            xda_swir = rxr.open_rasterio(swir_band[0])
+            xda_swir = xda_swir.where(xda_swir >= 0, 0)
+
+            for band in bands_name:
+
+                output_path = tool.newdirectory(self.path_dest, self.path_main) + '/' + self.path_main + '_' + band + '.tif'
+
+                if 'B11' in band:
+                    xda_band = rxr.open_rasterio(aux_folder + '/' + self.path_main + '_' + band + '.tif')
+                    xda_band = xda_band.where(xda_band >= 0, 0)
+                    xda_band.rio.to_raster(output_path)
+                else:
+                    xda_band = rxr.open_rasterio(aux_folder + '/' + self.path_main + '_' + band + '.tif')
+                    swir_match = xda_swir.rio.reproject_match(xda_band)
+                    glint_corr = np.where((xda_band - swir_match) <= 0, xda_band, (xda_band - swir_match))
+
+                    glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords, attrs=xda_band.attrs)
+
+                    glint_corr_data.rio.to_raster(output_path)
 
             tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main))
 
@@ -119,9 +142,16 @@ class Gceratmos_gee:
             atmos_param = Atmosphere(meta)
             atmos_param.run()
 
+            bands_order = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B9', 'B10', 'B11', 'B12']
+            bandnames = sorted(
+                meta.bandname,
+                key=lambda x: next((i for i, band in enumerate(bands_order) if band in x), float('inf'))
+            )
+
             # Atmospheric correction:
+            aux_folder = tool.newdirectory(self.path_main, 'tempdir2')
             vnir_xda = vnir_xda.rename({'Y': 'y', 'X': 'x'})
-            for index, band in enumerate(meta.bandname):
+            for index, band in enumerate(bandnames):
 
                 index = index + 1
 
@@ -149,9 +179,31 @@ class Gceratmos_gee:
                 }
 
                 # Write the corrected array to a new GeoTIFF
-                output_path = tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + self.path_main[-40:] + '_' + band + '.TIF'
-                with rasterio.open(output_path, "w", **out_meta) as dest:
-                    dest.write(arr_c)
+                with rasterio.open(tool.newdirectory(aux_folder, self.path_main[-40:]) + '/' + band[0:-4] + '.TIF', "w",**out_meta) as dest:
+                    dest.write(arr_c, 1)
+
+            # Glint correction based SWIR subtraction:
+            swir_band = [i for i in glob.glob(os.path.join(aux_folder, '*B11.tif'))]
+            xda_swir = rxr.open_rasterio(swir_band[0])
+            xda_swir = xda_swir.where(xda_swir >= 0, 0)
+
+            for band in bandnames:
+
+                output_path = tool.newdirectory(self.path_dest, self.path_main) + '/' + self.path_main + '_' + band + '.tif'
+
+                if 'B11' in band:
+                    xda_band = rxr.open_rasterio(aux_folder + '/' + self.path_main + '_' + band + '.tif')
+                    xda_band = xda_band.where(xda_band >= 0, 0)
+                    xda_band.rio.to_raster(output_path)
+                else:
+                    xda_band = rxr.open_rasterio(aux_folder + '/' + self.path_main + '_' + band + '.tif')
+                    swir_match = xda_swir.rio.reproject_match(xda_band)
+                    glint_corr = np.where((xda_band - swir_match) <= 0, xda_band, (xda_band - swir_match))
+
+                    glint_corr_data = xr.DataArray(glint_corr, dims=xda_band.dims, coords=xda_band.coords,
+                                                           attrs=xda_band.attrs)
+
+                    glint_corr_data.rio.to_raster(output_path)
 
             tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main[-40:]))
 

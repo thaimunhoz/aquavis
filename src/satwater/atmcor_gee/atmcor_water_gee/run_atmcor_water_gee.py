@@ -18,14 +18,8 @@ def run_gceratmos_gee(path_main, path_dest, satellite, aero_type="Maritime", pat
         sat = 'OLI_L8/9'
 
     mode = None
-    fmask_env = r'C:\Users\tml411\AppData\Local\anaconda3\envs\fmask_env\python'
     aero_type = "Maritime"
     gceratmos_r = Gceratmos_gee(path_main, path_dest, networkdrive_letter, sat, aero_type, mode)
     gceratmos_r.run()
 
     print(f'GCER Atmos correction applied.')
-
-    #cloud_mask = Satcloud(path_main, sat, path_dest, fmask_env)
-    #cloud_mask.run()
-
-    #print(f'Cloud mask applied.')

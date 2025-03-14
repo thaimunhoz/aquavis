@@ -58,7 +58,7 @@ def run(select_sat: str, params: dict) -> None:
     """
 
     tiles = [params[select_sat].get('tiles', [])]
-    sentinel_tile_mapping = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\sentinel_landsat_intersections.csv')
+    sentinel_tile_mapping = pd.read_csv(r'src/satwater/auxfiles/tiles/sentinel_landsat_intersections.csv')
 
     for tile in tiles:
         try:

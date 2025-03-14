@@ -59,8 +59,16 @@ class Metadata_MSI_S2:
         # Return the bouding box of the image:
         self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
 
-        self.bandname = [i for i in os.listdir(self.s2path) if self.BAND_ID in i]
-        self.bandname.insert(8, self.bandname.pop(-1)) # band name
+        # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
+        bands_order = ['B01', 'B1', 'B02', 'B2', 'B03', 'B3', 'B04', 'B4', 'B05', 'B5', 'B06', 'B6', 'B07', 'B7', 'B08',
+                       'B8', 'B8A', 'B09', 'B9', 'B10', 'B11', 'B12']
+
+        aux_bandnames = [i for i in os.listdir(self.s2path) if self.BAND_ID in i]
+        aux_bandnames.insert(8, aux_bandnames.pop(-1))  # band name
+
+        # ensure selected bands are sorted in the order defined in bands_order
+        self.bandname = sorted(aux_bandnames, key=lambda x: next((i for i, band in enumerate(bands_order) if band in x), float('inf')))
+
         self.dict_metadata = tool.xml_to_json(str(path[0]) + self.MTD) # metadata from sensor
         self.type = str(self.dict_metadata['n1:Level-1C_Tile_ID']['n1:General_Info']['TILE_ID']['#text'][0:3]) # safe number A or B
         self.date_and_time()
@@ -236,7 +244,16 @@ class Metadata_OLI_L89:
         Scans the metadata.
         """
 
-        self.bandname = [i for i in os.listdir(self.path_main) if self.BAND_ID in i and 'B9' not in i and 'B10' not in i and 'B11' not in i and 'B12' not in i] # band name
+        # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
+        bands_order = ['B01', 'B1', 'B02', 'B2', 'B03', 'B3', 'B04', 'B4', 'B05', 'B5', 'B06', 'B6', 'B07', 'B7', 'B08',
+                       'B8', 'B8A', 'B09', 'B9', 'B10', 'B11', 'B12']
+
+        aux_bandnames = [i for i in os.listdir(self.path_main) if
+                         self.BAND_ID in i and 'B9' not in i and 'B10' not in i and 'B11' not in i and 'B12' not in i]
+
+        # ensure selected bands are sorted in the order defined in bands_order
+        self.bandname = sorted(aux_bandnames, key=lambda x: next((i for i, band in enumerate(bands_order) if band in x), float('inf')))
+
         path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
 
         # Return the bouding box of the image:
@@ -293,12 +310,6 @@ class Metadata_OLI_L89:
         view_az[(view_az == 0) | (view_az == -9999)] = np.nan
         view_zen[(view_zen == 0) | (view_zen == -9999)] = np.nan
 
-        # import l8angles
-        #
-        # path = [i for i in glob.glob(os.path.join(self.path_main, '*.txt')) if self.ANG_ID in i]
-        # solar = l8angles.calculate_angles(path[0], angle_type='SOLAR', subsample=1, bands=[4])
-        # view = l8angles.calculate_angles(path[0], angle_type='SATELLITE', subsample=1, bands=[4])
-
         for i in range(0, 8):
 
             output = {}
@@ -307,13 +318,6 @@ class Metadata_OLI_L89:
             output['solar_zn'] = np.mean(solar_zen[~np.isnan(solar_zen)]) / 100
             output['view_az'] = np.mean(view_az[~np.isnan(view_az)]) / 100
             output['view_zn'] = np.mean(view_zen[~np.isnan(view_zen)]) / 100
-
-            # output['solar_az'] = np.mean(solar['sun_az'][0][~np.isnan(solar['sun_az'][0])])
-            # output['solar_zn'] = np.mean(solar['sun_zn'][0][~np.isnan(solar['sun_zn'][0])])
-            # output['view_az'] = np.mean(view['sat_az'][0][~np.isnan(view['sat_az'][0])])
-            # output['view_zn'] = np.mean(view['sat_zn'][0][~np.isnan(view['sat_zn'][0])])
-
-            #print(f"ANGLE OUTPUT FOR BAND {i + 1}: {output}")
 
             self.geometry[i] = output
 
