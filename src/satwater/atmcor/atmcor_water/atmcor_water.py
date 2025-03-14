@@ -65,7 +65,7 @@ class Gceratmos:
 
             # Atmospheric correction:
             for index, band in enumerate(meta.bandname):
-                arr = tool.loadarray(tempdir + '/' + band[0:-4] + '.tif')
+                arr = rxr.open_rasterio(tempdir + '/' + band[0:-4] + '.tif').squeeze().values.astype(float)
                 print(tempdir + '/' + band[0:-4] + '.tif')
                 corr = Correction(meta, atmos_param, arr, index)
                 corr.run()

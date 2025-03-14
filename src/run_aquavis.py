@@ -1,17 +1,22 @@
 import logging
 from src.satwater import build_aquavis
-from src.satwater.input_gee import toa_gee
 
 def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, output_dir: str, keep_atmcor: str, input_toa: str, brdf_corr: str, output_type: str) -> None:
 
     '''
-    Run the SatWater processing chain.
+    Run the AQUAVis processing chain.
+
     Input:
         select_sat (str): Satellite to process (landsat or sentinel)
-        tile (str): Tile name
+        tile (str): Tile name (e.g., '35VLG')
         period_ini (str): Initial date in the format 'YYYYMMDD'
         period_end (str): End date in the format 'YYYYMMDD'
         output_dir (str): Output directory
+        keep_atmcor (bool): Keep atmospheric correction files
+        input_toa (str): Input TOA source ('GEE' or 'local')
+        brdf_corr (bool): Apply BRDF correction
+        output_type (str): Output type ('rho' or 'rrs')
+
     Output:
         None
     '''
@@ -39,7 +44,7 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
             "output_type": output_type,
         },
         "sentinel": {
-            "input_dir": r"Z:\guser\tml\mypapers\HLS_package_paper\sentinel_toa",
+            "input_dir": r"Z:\dbcenter\images\sentinel\scenes\level_toa",
             "tiles_shp": tiles_sentinel,
         },
         "landsat": {

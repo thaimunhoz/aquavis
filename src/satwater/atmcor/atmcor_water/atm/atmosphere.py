@@ -37,17 +37,17 @@ class Atmosphere:
         # Satellite selection:
         if self.parameters.satellite == 'MSI_S2':
             if self.parameters.type == 'S2A':
-                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\gceratmos_hls\atm\rsr_S2A_MSI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
+                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\atmcor_water\atm\rsr_S2A_MSI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
                 bands = self.rsr_interp(rsr, 13, [0.412, 2.321])
             else:
-                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\gceratmos_hls\atm\rsr_S2B_MSI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
+                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\atmcor_water\atm\rsr_S2B_MSI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
                 bands = self.rsr_interp(rsr, 13, [0.412, 2.321])
         elif self.parameters.satellite == 'OLI_L8/9':
             if self.parameters.type == 'LC08':
-                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\gceratmos_hls\atm\rsr_L8_OLI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
+                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\atmcor_water\atm\rsr_L8_OLI.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
                 bands = self.rsr_interp(rsr, 8, [0.427, 2.356])
             else:
-                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\gceratmos_hls\atm\rsr_L9_OLI2.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
+                rsr = pd.read_csv(r'C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\atmcor\atmcor_water\atm\rsr_L9_OLI2.txt', sep='\t', skiprows=5, names=['wavelength', 'rsr', 'band', 'id'])
                 bands = self.rsr_interp(rsr, 8, [0.427, 2.356])
         else:
             warnings.warn("The sensor type was not identified in ATMOSPHERE.", UserWarning)
