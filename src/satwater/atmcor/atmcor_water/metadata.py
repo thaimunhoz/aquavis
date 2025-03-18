@@ -60,8 +60,7 @@ class Metadata_MSI_S2:
         self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
 
         # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
-        bands_order = ['B01', 'B1', 'B02', 'B2', 'B03', 'B3', 'B04', 'B4', 'B05', 'B5', 'B06', 'B6', 'B07', 'B7', 'B08',
-                       'B8', 'B8A', 'B09', 'B9', 'B10', 'B11', 'B12']
+        bands_order = ['B01', 'B02', 'B03', 'B04','B05', 'B06','B07','B08','B8A', 'B09', 'B10', 'B11', 'B12']
 
         aux_bandnames = [i for i in os.listdir(self.s2path) if self.BAND_ID in i]
         aux_bandnames.insert(8, aux_bandnames.pop(-1))  # band name
@@ -245,8 +244,7 @@ class Metadata_OLI_L89:
         """
 
         # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
-        bands_order = ['B01', 'B1', 'B02', 'B2', 'B03', 'B3', 'B04', 'B4', 'B05', 'B5', 'B06', 'B6', 'B07', 'B7', 'B08',
-                       'B8', 'B8A', 'B09', 'B9', 'B10', 'B11', 'B12']
+        bands_order = ['B1', 'B2','B3', 'B4','B5','B6', 'B7','B8','B9','B10','B11','B12']
 
         aux_bandnames = [i for i in os.listdir(self.path_main) if
                          self.BAND_ID in i and 'B9' not in i and 'B10' not in i and 'B11' not in i and 'B12' not in i]

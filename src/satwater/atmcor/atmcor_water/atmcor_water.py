@@ -93,7 +93,7 @@ class Gceratmos:
 
                     glint_corr_data.rio.to_raster(dest + '/' + band[0:-4] + '.tif')
 
-            tool.export_meta(meta, dest)
+            tool.export_meta(meta, atmos_param, dest)
             shutil.rmtree(tempdir)
             #shutil.rmtree(aux_folder)
 
@@ -156,7 +156,7 @@ class Gceratmos:
 
                     glint_corr_data.rio.to_raster(tool.newdirectory(self.path_dest, self.path_main[-40:]) + '/' + band[0:-4] + '.tif')
 
-            tool.export_meta(meta, tool.newdirectory(self.path_dest, self.path_main[-40:]))
+            tool.export_meta(meta, atmos_param, tool.newdirectory(self.path_dest, self.path_main[-40:]))
 
         else:
 

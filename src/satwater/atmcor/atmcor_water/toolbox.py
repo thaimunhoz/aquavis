@@ -75,7 +75,7 @@ def dict_to_xml(dictionary, parent=None):
     return parent
 
 
-def export_meta(meta, dest: str) -> None:
+def export_meta(meta, atmos_param, dest: str) -> None:
 
     """
     It writes and exports the metadata as a file .xml.
@@ -87,6 +87,7 @@ def export_meta(meta, dest: str) -> None:
     geometry = {'B' + str(key): value for key, value in meta.geometry.items()}
     rescale = {'B' + str(key): value for key, value in meta.rescale.items()}
     bands = {'B' + str(i): meta.bandname[i] for i in range(len(meta.bandname))}
+    sixsv_params = {'B' + str(key): value for key, value in atmos_param.values_adjcorr.items()}
 
     metadata_dict = {
         'General_Info': {
@@ -108,7 +109,8 @@ def export_meta(meta, dest: str) -> None:
             'ozone': meta.ozone,
             'altitude': meta.altitude,
             'geometry': geometry,
-            'rescale': rescale
+            'rescale': rescale,
+            'sixSV_params': sixsv_params
         },
         'Outputdata': {
             'pixel_value': 'surface_reflectance',

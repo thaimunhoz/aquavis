@@ -11,6 +11,7 @@ class Atmosphere:
 
         self.parameters = parameters
         self.values = {}
+        self.values_adjcorr = {}
 
     def run(self):
         """
@@ -72,6 +73,18 @@ class Atmosphere:
                                   'Tg_O3': float(s.outputs.transmittance_ozone.total),
                                   'p_atm': float(s.outputs.atmospheric_intrinsic_reflectance),
                                   'optical_depth_rayleigh': float(s.outputs.optical_depth_total.rayleigh)}
+
+            self.values_adjcorr[i-x] = {
+                                        'view_z': self.parameters.geometry[i - x]['view_zn'], 'view_az': self.parameters.geometry[i - x]['view_az'],
+                                        'solar_zn': self.parameters.geometry[i - x]['solar_zn'], 'solar_az': self.parameters.geometry[i - x]['solar_az'],
+                                        'optical_depth__total_Ray': s.outputs.optical_depth_total.rayleigh,
+                                        'rayleigh_scatransmi_upward': s.outputs.transmittance_rayleigh_scattering.upward,
+                                        'optical_depth__total_Aero': s.outputs.optical_depth_total.aerosol,
+                                        'aerosol_scatransmi_upward': s.outputs.transmittance_aerosol_scattering.upward,
+                                        'optical_depth__total_AeroRay': float(s.outputs.optical_depth_total.aerosol + s.outputs.optical_depth_total.rayleigh),
+                                        'total_scattering_transmittance_upward': s.outputs.transmittance_total_scattering.upward,
+                                        'optical_depth_total': float(s.outputs.optical_depth_total.total)
+                                        }
 
     def rsr_interp(self, rsr, band_number: int, range_w: list) -> dict:
         """
