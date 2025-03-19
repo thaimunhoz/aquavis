@@ -255,7 +255,8 @@ class Metadata_OLI_L89:
         path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
 
         # Return the bouding box of the image:
-        self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
+        #self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
+        self.roi = tool.return_bbox(self.path_main)
 
         self.dict_metadata = tool.xml_to_json(str(path[0])) # metadata from sensor
         self.type = str(self.dict_metadata['LANDSAT_METADATA_FILE']['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID'][0:4]) # safe number L8 or L9

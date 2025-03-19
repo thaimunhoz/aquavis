@@ -131,7 +131,7 @@ class MCDExtractWindow:
                 else:  # yes, there is an intersection
                     from rasterio.mask import mask
                     # Read the subset of the raster data within the polygon area
-                    subset, _ = mask(src, geom, nodata=-9999, crop=True, indexes=1)
+                    subset, _ = mask(src, geom, nodata=-9999, crop=True, indexes=1, all_touched = True)
                     array_1d = subset.flatten()
                     array_1d = array_1d[array_1d != -9999]
 

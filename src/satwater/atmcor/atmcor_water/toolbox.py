@@ -151,20 +151,47 @@ def jp2_to_tiff_xarray(path, dest):
 
 def return_bbox(image_path):
 
-    with rasterio.open(image_path) as _bandl:
 
-        band_crs = _bandl.crs.to_epsg()
-        image_data = _bandl.read(1)
-        valid_data_mask = image_data != 0
+    band_path = [i for i in os.listdir(image_path)]
+    green_band = next((band for band in band_path if "B3" in band or "B03" in band), None)
+    swir_band = next((band for band in band_path if "B11" in band or "B6" in band or "B06" in band), None)
 
-    results = (
-        {'properties': {'raster_val': v}, 'geometry': s}
-        for s, v in shapes(valid_data_mask.astype(np.int16), transform=_bandl.transform)
+    xda_green = rxr.open_rasterio(os.path.join(image_path, green_band))
+    xda_swir = rxr.open_rasterio(os.path.join(image_path, swir_band))
+
+    xda_green_matched = xda_green.rio.reproject_match(xda_swir)
+
+    mndwi = (xda_green_matched - xda_swir) / (xda_green_matched + xda_swir)
+    mndwi_mask = mndwi > 1.5
+    water_mask = mndwi_mask
+
+    with rasterio.open(os.path.join(image_path, green_band)) as src:
+        _transform = src.transform
+        _crs = src.crs
+
+    # with rasterio.open(image_path) as _bandl:
+    #
+    #     band_crs = _bandl.crs.to_epsg()
+    #     image_data = _bandl.read(1)
+    #     valid_data_mask = image_data != 0
+
+    # results = (
+    #     {'properties': {'raster_val': v}, 'geometry': s}
+    #     for s, v in shapes(water_mask.astype(np.int16), transform=_transform)
+    #     if v  # Only take shapes with raster_val = True (i.e., v=1)
+    # )
+
+    results = list(
+        {"properties": {"raster_val": v}, "geometry": s}
+        for s, v in shapes(np.asarray(water_mask, dtype=np.int16), transform=_transform)
         if v  # Only take shapes with raster_val = True (i.e., v=1)
     )
 
     geometries = [shape(feature['geometry']) for feature in results]
 
-    gdf = gpd.GeoDataFrame(geometry=geometries, crs=band_crs).to_crs(4326)
+    gdf = gpd.GeoDataFrame(geometry=geometries, crs=_crs).to_crs(4326)
 
-    return gdf
+    gdf['area'] = gdf['geometry'].area
+    gdf_largest = gdf.sort_values(by='area', ascending=True).head(1)
+
+    return gdf_largest
