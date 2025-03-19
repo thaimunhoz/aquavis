@@ -24,3 +24,5 @@ def run_gceratmos(path_main, path_dest, satellite):
     cloud_mask = Satcloud(path_main, sat, path_dest, fmask_env)
     cloud_mask.run()
     print(f'Cloud mask applied.')
+
+
