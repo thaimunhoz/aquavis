@@ -19,7 +19,7 @@ def gen_resample(sentinel_scene, params):
     imgtemp_dir = os.path.join(params['output_dir'], 'temp', f"temp_{os.path.basename(sentinel_scene)}")
     satwutils.create_dir(imgtemp_dir)
 
-    sentinel_scene_bands = [f for f in glob.glob(os.path.join(sentinel_scene, '*.SAFE*', '*_B*.tif')) if any(band in f for band in sentinel_bands)]
+    sentinel_scene_bands = [f for f in glob.glob(os.path.join(sentinel_scene, '*_B*.tif')) if any(band in f for band in sentinel_bands)]
     sentinel_scene_bands = sorted(sentinel_scene_bands, key=lambda x: next((i for i, band in enumerate(sentinel_bands) if band in x), float('inf')))
 
     for sentinel_band in sentinel_scene_bands:
@@ -76,7 +76,7 @@ def run(params):
         # Locate the reference Sentinel-2 image
         sentinel_images = [
             f for f in glob.glob(
-                os.path.join(params['output_dir'], 'atmcor', 'sentinel', tile, '**', '*.SAFE*', '*_B*.tif')
+                os.path.join(params['output_dir'], 'atmcor', '**', '*.SAFE*', '*_B*.tif')
             )
             if any(band in f for band in sentinel_bands)
         ]
@@ -94,10 +94,14 @@ def run(params):
         satwutils.create_dir(os.path.join(params['output_dir_tiling'], 'sentinel'))
 
         # Identify Sentinel-2 scenes for processing
-        sentinel_scene_dir = os.path.join(params['output_dir'], 'atmcor', 'sentinel', tile)
+        sentinel_scene_dir = os.path.join(params['output_dir'], 'glintcorr')
         sentinel_scenes = [os.path.join(sentinel_scene_dir, scene) for scene in os.listdir(sentinel_scene_dir)]
 
+        # Run resampling in a foor lop
+        for scene in sentinel_scenes:
+            gen_resample(scene, params)
+
         # Run resampling in parallel
-        with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-            results = pool.starmap_async(gen_resample, [(scene, params) for scene in sentinel_scenes]).get()
-            print(f"Processing results for tile {tile}: {results}")
+        # with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+        #     results = pool.starmap_async(gen_resample, [(scene, params) for scene in sentinel_scenes]).get()
+        #     print(f"Processing results for tile {tile}: {results}")

@@ -24,10 +24,13 @@ def xml_to_json(path_metadata: str):
         return json.loads(json.dumps(file_dictionary))
 
 def export(array: float, index: str, reference: str, dest: str) -> None:
+
     """
     Exports a single-band raster to the specified destination using rioxarray.
     """
-    filename_out_factor = f"{dest}/{index[:-4]}.TIF"
+
+    #filename_out_factor = f"{dest}/{index[:-4]}.tif"
+    filename_out_factor = dest
 
     # Open the reference raster to copy geospatial information
     reference_raster = rxr.open_rasterio(reference, masked=True)
@@ -149,8 +152,17 @@ def jp2_to_tiff_xarray(path, dest):
         with rasterio.open(dest, "w", **out_meta) as dest:
             dest.write(out_image, 1)
 
-def return_bbox(image_path):
+def return_water(image_path, rescale_factors, msi_tile):
 
+    '''
+    This function returns the water mask (as geodataframe) from a given image path.
+    '''
+
+    # Search for msi tile
+    sentinel_tiles_path = r"C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\MGRS_tiles.shp"
+    msi_tiles_gdf = gpd.read_file(sentinel_tiles_path)
+
+    tile_gdf = msi_tiles_gdf[msi_tiles_gdf['Name'] == msi_tile]
 
     band_path = [i for i in os.listdir(image_path)]
     green_band = next((band for band in band_path if "B3" in band or "B03" in band), None)
@@ -161,25 +173,21 @@ def return_bbox(image_path):
 
     xda_green_matched = xda_green.rio.reproject_match(xda_swir)
 
+    # Convert to TOA reflectance
+    try:
+        xda_swir = xda_swir * rescale_factors[1]['qvalue'] + rescale_factors[1]['offset']
+        xda_green_matched = xda_green_matched * rescale_factors[0]['qvalue'] + rescale_factors[0]['offset']
+    except:
+        xda_swir = xda_swir * rescale_factors[1]['mult'] + rescale_factors[1]['add']
+        xda_green_matched = xda_green_matched * rescale_factors[0]['mult'] + rescale_factors[0]['add']
+
     mndwi = (xda_green_matched - xda_swir) / (xda_green_matched + xda_swir)
-    mndwi_mask = mndwi > 1.5
+    mndwi_mask = mndwi > 0
     water_mask = mndwi_mask
 
     with rasterio.open(os.path.join(image_path, green_band)) as src:
         _transform = src.transform
         _crs = src.crs
-
-    # with rasterio.open(image_path) as _bandl:
-    #
-    #     band_crs = _bandl.crs.to_epsg()
-    #     image_data = _bandl.read(1)
-    #     valid_data_mask = image_data != 0
-
-    # results = (
-    #     {'properties': {'raster_val': v}, 'geometry': s}
-    #     for s, v in shapes(water_mask.astype(np.int16), transform=_transform)
-    #     if v  # Only take shapes with raster_val = True (i.e., v=1)
-    # )
 
     results = list(
         {"properties": {"raster_val": v}, "geometry": s}
@@ -191,7 +199,30 @@ def return_bbox(image_path):
 
     gdf = gpd.GeoDataFrame(geometry=geometries, crs=_crs).to_crs(4326)
 
-    gdf['area'] = gdf['geometry'].area
-    gdf_largest = gdf.sort_values(by='area', ascending=True).head(1)
+    # Return the gdf_largest polygons that intersect with the tile
+    gdf_tile = gpd.overlay(gdf, tile_gdf, how='intersection')
+
+    gdf_tile['area'] = gdf_tile['geometry'].area
+    gdf_largest = gdf_tile.sort_values(by='area', ascending=False).head(1)
 
     return gdf_largest
+
+def return_bbox(image_path):
+
+    with rasterio.open(image_path) as _bandl:
+
+         band_crs = _bandl.crs.to_epsg()
+         image_data = _bandl.read(1)
+         valid_data_mask = image_data != 0
+
+    results = (
+         {'properties': {'raster_val': v}, 'geometry': s}
+         for s, v in shapes(valid_data_mask.astype(np.int16), transform=_bandl.transform)
+         if v  # Only take shapes with raster_val = True (i.e., v=1)
+    )
+
+    geometries = [shape(feature['geometry']) for feature in results]
+
+    gdf = gpd.GeoDataFrame(geometry=geometries, crs=band_crs).to_crs(4326)
+
+    return gdf

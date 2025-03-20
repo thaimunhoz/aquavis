@@ -30,6 +30,16 @@ class Correction:
         # arr_TOA: Top Of Atmosphere reflectance;
         # arr_sr: Surface reflectance.
         # Optical depth Ozone:
+        tg_OG_co = float(self.atmosphere.values[self.index]['tg_OG_co'])
+        tg_OG_c02 = float(self.atmosphere.values[self.index]['tg_OG_c02'])
+        tg_OG_o2 = float(self.atmosphere.values[self.index]['tg_OG_o2'])
+        tg_OG_no2 = float(self.atmosphere.values[self.index]['tg_OG_no2'])
+        tg_OG_ch4 = float(self.atmosphere.values[self.index]['tg_OG_ch4'])
+        # Total transmission of Other Gases -> Tg_OG:
+        Tg_OG = float(tg_OG_co * tg_OG_c02 * tg_OG_o2 * tg_OG_no2 * tg_OG_ch4)
+        # Total transmission of the Water Vapor -> Tg_H2O:
+        Tg_H20 = float(self.atmosphere.values[self.index]['Tg_H20'])
+        # Optical depth Ozone:
         Tg_O3 = float(self.atmosphere.values[self.index]['Tg_O3'])  # Total transmission of the Ozone -> Tg_O3:
         total_OpticalDepthO3 = -np.log(Tg_O3)
         # UPWARD - diffuse transmittance:
@@ -58,4 +68,4 @@ class Correction:
         else:
             warnings.warn("The sensor type was not identified in CORRECTION >> run", UserWarning)
         # Correction --SURFACE REFLECTANCE:
-        self.arr_sr = (arr_toa - r_atm) / tdif_upward
+        self.arr_sr = ((arr_toa / (Tg_OG * Tg_O3 * Tg_H20)) - r_atm) / tdif_upward

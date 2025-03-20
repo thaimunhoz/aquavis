@@ -92,11 +92,11 @@ def run(select_sat: str, params: dict) -> None:
             continue
 
         # Prepare output paths
-        output_paths = [os.path.join(params["output_dir"], "atmcor", select_sat, tile, os.path.splitext(os.path.basename(img))[0])for img in all_imgs]
+        output_paths = [os.path.join(params["output_dir"], "atmcor", os.path.splitext(os.path.basename(img))[0]) for img in all_imgs]
 
         # Run in a for loop
         for img, output_path in zip(all_imgs, output_paths):
-            run_gceratmos(img, output_path, select_sat)
+            run_gceratmos(img, output_path, select_sat, tiles[0])
 
         # Run atmospheric correction in parallel
         # with Pool(processes=params['aux_info']['n_cores']) as pool:

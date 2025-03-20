@@ -44,11 +44,11 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
             "output_type": output_type,
         },
         "sentinel": {
-            "input_dir": r"Z:\dbcenter\images\sentinel\scenes\level_toa",
+            "input_dir": r"Z:\guser\tml\mypapers\HLS_package_paper\sentinel_toa",
             "tiles_shp": tiles_sentinel,
         },
         "landsat": {
-            "input_dir": r"Z:\dbcenter\images\landsat\scenes\level_toa",
+            "input_dir": r"Z:\guser\tml\mypapers\HLS_package_paper\landsat_toa",
             "generation": "L89",
             "tiles_shp": tiles_landsat,
         },
@@ -71,16 +71,20 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
     else:
         SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
+    SatWater_i.run_adjcorr() # 2. Adjacent correction
+
+    SatWater_i.run_glint_corr() # 3. Glint correction
+
     if select_sat == "landsat":
-        SatWater_i.run_tiling() # 2. Tiling for Landsat
+        SatWater_i.run_tiling() # 4. Tiling for Landsat
 
     elif select_sat == "sentinel":
-        SatWater_i.run_resample() #3. Resampling and bandpass adjustment for Sentinel-2
+        SatWater_i.run_resample() # 4. Resampling and bandpass adjustment for Sentinel-2
 
-    SatWater_i.run_water_mask() # 4. Water mask generation
+    SatWater_i.run_water_mask() # 5. Water mask generation
 
-    SatWater_i.run_hlswater() # 5. HLS water generation
+    SatWater_i.run_hlswater() # 6. HLS water generation
 
-    SatWater_i.run_plot() # 6. Plotting
+    #SatWater_i.run_plot() # 7. Plotting
 
     logging.info("Process finished successfully.")

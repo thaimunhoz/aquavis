@@ -119,7 +119,7 @@ def run(params):
     output_dir_png = fr"{params['output_dir']}\plots"
     os.makedirs(output_dir_png, exist_ok=True)
 
-    path_hls = fr"{params['output_dir']}\hlswater"
+    path_hls = fr"{params['output_dir']}\AQUAVis_Product"
     n_hlsscene = os.listdir(path_hls)
 
     n_path_hls = [path_hls]*len(n_hlsscene)

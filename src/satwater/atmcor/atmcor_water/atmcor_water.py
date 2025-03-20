@@ -21,6 +21,7 @@ class Gceratmos:
                  satellite: str,
                  aero_type: str,
                  mode=None,
+                 msi_tile = None,
                  path_buffer=None):
 
         self.GRANULE = '/GRANULE'
@@ -32,6 +33,7 @@ class Gceratmos:
         self.satellite = satellite
         self.aero_type = aero_type
         self.mode = mode
+        self.msi_tile = msi_tile
         self.path_buffer = path_buffer
 
     def run(self):
@@ -55,7 +57,7 @@ class Gceratmos:
                 tool.jp2_to_tiff_xarray(i, tempdir + '/' + i[-30:-4] + '.tif')
 
             # Metadata:
-            meta = Metadata_MSI_S2(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode)
+            meta = Metadata_MSI_S2(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode, self.msi_tile)
             meta.run()
 
             # Atmospheric parameters:
@@ -77,14 +79,14 @@ class Gceratmos:
                 tool.export(arr_c, band, tempdir + '/' + band[0:-4] + '.tif', dest + '/' + band[0:-4] + '.tif')
 
             tool.export_meta(meta, atmos_param, dest)
-            shutil.rmtree(tempdir)
+            #shutil.rmtree(tempdir)
 
         elif self.satellite == 'OLI_L8/9':
 
             print(self.path_main[-40:])
 
             # Metadata:
-            meta = Metadata_OLI_L89(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode)
+            meta = Metadata_OLI_L89(self.path_main, self.path_dest, self.networkdrive_letter, self.satellite, self.aero_type, self.mode, self.msi_tile)
             meta.run()
 
             # Atmospheric parameters:

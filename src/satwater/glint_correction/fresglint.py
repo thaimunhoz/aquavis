@@ -3,15 +3,14 @@ import rasterio
 import numpy as np
 import rioxarray as rxr
 import xml.etree.ElementTree as ET
-
+from src.satwater.utils import satwutils
 from src.satwater.glint_correction import glintcorr_toolbox as toolbox
 
 class FresGLINT:
 
-    def __init__(self, path_main: str, dest: str):
+    def __init__(self):
 
-        self.path_main = path_main
-        self.dest = dest
+        pass
 
     def read_metadata(self):
         tree = ET.parse(os.path.join(self.path_main, 'MTD.xml'))
@@ -67,7 +66,7 @@ class FresGLINT:
 
         return reference
 
-    def corr_swir_glint(self, band_names, band_key, filtered_dict):
+    def corr_swir_glint(self, band_name, band_key, filtered_dict):
 
         array_path = os.path.join(self.path_main, filtered_dict[band_key])
 
@@ -89,22 +88,20 @@ class FresGLINT:
             nodata=-9999
         )
 
-        output_path_save = os.path.join(self.dest, f"glintcorr_{band_names[i]}")
+        output_path_save = os.path.join(self.dest, f"{band_name}")
 
         with rasterio.open(output_path_save, 'w', **profile) as dest_dataset:
             dest_dataset.write(arr_integer, 1)
 
-    def process_band(self, band_key, index, filtered_dict, metadata, swir_band, ang, w_refIndex):
-
-        band_names = list(filtered_dict.values())
-        band_index = list(filtered_dict.keys())
+    def process_band(self, band_key, index, band_name, filtered_dict, metadata, swir_band, ang, w_refIndex):
 
         if (metadata["General_Info"]["satellite"] == "MSI_S2") and (band_key == "B8"):
 
             arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band))
-            gmask20 = np.where(arr1020 >= 0.03, 1, 0)
+            arr1020[arr1020 < 0] = 0
+            #gmask20 = np.where(arr1020 >= 1, 1, 0)
 
-            ang20 = self.calculate_angle_images(self, metadata, arr1020)
+            ang20 = self.calculate_angle_images(metadata, arr1020)
 
             reference_20 = self.reference_band(ang20, metadata)
 
@@ -114,12 +111,17 @@ class FresGLINT:
                                 w_refIndex[index])
 
             r_glint = arr1020 * (target['Tdir'] / reference_20['Tdir']) * (target['rFresnel'] / reference_20['rFresnel'])
-            m_glint = gmask20 == 1
+            #m_glint = gmask20 == 1
             r_glint = r_glint.values[0, :, :]
 
         elif (metadata["General_Info"]["satellite"] == "MSI_S2") and (band_key == "B11"):
 
-            self.corr_swir_glint(band_names, band_key, filtered_dict)
+            self.corr_swir_glint(band_name, band_key, filtered_dict)
+            return None
+
+        elif (band_key == "B5") or (band_key == "B05"):
+
+            self.corr_swir_glint(band_name, band_key, filtered_dict)
             return None
 
         else:
@@ -130,7 +132,7 @@ class FresGLINT:
                                 w_refIndex[index])
 
             r_glint = self.arr1020 * (target['Tdir'] / self.reference['Tdir']) * (target['rFresnel'] / self.reference['rFresnel'])
-            m_glint = self.gmask == 1
+            #m_glint = self.gmask == 1
             r_glint = r_glint[0, :, :]
 
         array_path = os.path.join(self.path_main, filtered_dict[band_key])
@@ -139,19 +141,20 @@ class FresGLINT:
             arr = src.read(1).astype(float)
             profile = src.profile
 
-        r_corr = self.correct_glint(arr, r_glint, m_glint)
+        r_corr = self.correct_glint(arr, r_glint)
 
-        self.save_corrected_image(r_corr, profile, band_key)
+        self.save_corrected_image(r_corr, profile, band_name)
 
-    def correct_glint(self, arr, r_glint, m_glint):
+    def correct_glint(self, arr, r_glint):
 
         r_corr = np.copy(arr)
-        m_glint = m_glint[0, :, :]
-        r_corr[m_glint] = arr[m_glint] - r_glint[m_glint]
+        #m_glint = m_glint[0, :, :]
+        #r_corr[m_glint] = arr[m_glint] - r_glint[m_glint]
+        r_corr = arr - r_glint
         r_corr[(r_corr > -0.2) & (r_corr < 0)] = 0.0001
         return r_corr
 
-    def save_corrected_image(self, r_corr, profile, band_key):
+    def save_corrected_image(self, r_corr, profile, band_name):
 
         mask_nodata = np.where((r_corr < 0) | (r_corr > 1) | (r_corr == np.nan), 0, 1)
         # arr_integer = (r_corr_final * 10000).astype(np.int16)
@@ -165,11 +168,14 @@ class FresGLINT:
             nodata=-9999
         )
 
-        output_path_save = os.path.join(self.dest, f"glintcorr_{band_key}")
+        output_path_save = os.path.join(self.dest, f"{band_name}")
         with rasterio.open(output_path_save, 'w', **profile) as dest_dataset:
             dest_dataset.write(arr_integer, 1)
 
-    def run(self):
+    def apply_glintcorr(self, input_path, output_path):
+
+        self.path_main = input_path
+        self.dest = output_path
 
         self.band_path = [i for i in os.listdir(self.path_main)]
 
@@ -192,21 +198,23 @@ class FresGLINT:
         self.arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band)).rio.reproject_match(
             rxr.open_rasterio(os.path.join(self.path_main, red_band))
         ).values.astype(float)
+        self.arr1020[self.arr1020 < 0] = 0
 
         # Glint mask
-        self.gmask = self.calculate_glint_mask(red_band, swir_band)
+        #self.gmask = self.calculate_glint_mask(red_band, swir_band)
 
         # Angle images -> OAA, OZA, SAA, and SZA:
         self.ang = self.calculate_angle_images(metadata, self.arr1020)
 
         # Extracts the fresnel reflectance and transmittance for reference band (1020nm):
-        self.reference = self.reference_band(metadata)
+        self.reference = self.reference_band(self.ang, metadata)
 
         # Glint correction for each band
         filtered_dict = {key: value for key, value in metadata["General_Info"]["bandname"].items() if
                          any(band in value for band in corr_bands)}
 
         updated_dict = {key: value.replace(".jp2", ".tif") for key, value in filtered_dict.items()}
+        updated_dict = {key: value.replace(".TIF", ".tif") for key, value in updated_dict.items()}
 
         filtered_dict = updated_dict
 
@@ -216,7 +224,28 @@ class FresGLINT:
         for i in range(len(band_index)):
 
             band_key = band_index[i]
+            band_name = band_names[i]
 
-            print(f"Processing band: {band_key}")
+            self.process_band(band_key, i, band_name, filtered_dict, metadata, swir_band, self.ang, self.w_refIndex)
 
-            self.process_band(band_key, i, filtered_dict, metadata, swir_band, self.ang, self.w_refIndex, self.dest)
+    def run(self, params):
+
+        if params['aux_info']['sat_name'] == "sentinel":
+
+            sentinel_scene_dir = params['output_dir_adjcorr']
+            input_path = [os.path.join(sentinel_scene_dir, scene) for scene in os.listdir(sentinel_scene_dir)]
+
+        else:
+
+            landsat_path = params['output_dir_adjcorr']
+            input_path = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
+
+        params['output_dir_glintcorr'] = os.path.join(params['output_dir'], 'glintcorr')
+        satwutils.create_dir(params['output_dir_glintcorr'])
+
+        for scene in input_path:
+
+            output_path = os.path.join(params['output_dir_glintcorr'], os.path.basename(scene))
+            satwutils.create_dir(output_path)
+
+            self.apply_glintcorr(scene, output_path)

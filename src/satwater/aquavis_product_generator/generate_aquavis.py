@@ -31,9 +31,10 @@ def convert_float_to_int16(input_raster, output_raster, params, scale_factor=100
         # Output in rho or rrs:
         if params['aux_info']['output_type'] == 'rho':
             arr = arr # surface reflectance
-            #arr *= scale_factor
+            arr *= scale_factor
         else:
             arr = arr/np.pi # Rrs
+            arr *= scale_factor
 
         arr = np.where(np.isnan(arr), nodata, arr)
 
@@ -53,7 +54,7 @@ def convert_float_to_int16(input_raster, output_raster, params, scale_factor=100
             # Write the modified array to the output raster
             dst.write(arr.astype(rasterio.int16), 1)
 
-def get_scene_details(scene_path, sat='landsat'):
+def get_scene_details(scene_path, sat, params):
 
     """
     Returns a dictionary of scene details for a given scene path
@@ -68,6 +69,8 @@ def get_scene_details(scene_path, sat='landsat'):
         date_time = scene_name.split('_')[2]
 
     else:
+
+        info = params['aux_info']['date_time_info'].split("T")
 
         scene_name = os.path.basename(scene_path)
 
@@ -92,7 +95,7 @@ def gen_hls(scene_path, params):
 
     sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
 
-    date_time = get_scene_details(scene_path, params["sat"])
+    date_time = get_scene_details(scene_path, params["sat"], params)
 
     if params["sat"] == 'landsat':
         landsat_tile = os.path.basename(scene_path).split('_')[2]
@@ -180,10 +183,13 @@ def run(params):
 
         n_params = [params] * len(scenes)
 
-        with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
-            results = pool.starmap_async(gen_hls, zip(scenes, n_params)).get()
-            print(results)
-            pool.close()
+        for scene in scenes:
+            gen_hls(scene, params)
+
+        # with multiprocessing.Pool(processes=params['aux_info']['n_cores']) as pool:
+        #     results = pool.starmap_async(gen_hls, zip(scenes, n_params)).get()
+        #     print(results)
+        #     pool.close()
 
         atmcor_folder = fr'{params["output_dir"]}\atmcor'
         tiling_folder = fr'{params["output_dir"]}\tiling'

@@ -1,7 +1,7 @@
 from src.satwater.atmcor.atmcor_water.atmcor_water import Gceratmos
 from src.satwater.atmcor.atmcor_water.cloud.SatClouds.satclouds import Satcloud
 
-def run_gceratmos(path_main, path_dest, satellite):
+def run_gceratmos(path_main, path_dest, satellite, msi_tile):
 
     """
         Applies GCER Atmos correction to Sentinel-2 images.
@@ -17,7 +17,7 @@ def run_gceratmos(path_main, path_dest, satellite):
     mode = None
     fmask_env = r'C:\Users\tml411\AppData\Local\anaconda3\envs\fmask_env\python'
     aero_type = "Maritime"
-    gceratmos_r = Gceratmos(path_main, path_dest, networkdrive_letter, sat, aero_type, mode)
+    gceratmos_r = Gceratmos(path_main, path_dest, networkdrive_letter, sat, aero_type, mode, msi_tile)
     gceratmos_r.run()
     print(f'GCER Atmos correction applied.')
 

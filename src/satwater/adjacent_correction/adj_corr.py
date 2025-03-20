@@ -1,27 +1,32 @@
 import os
+import glob
+import shutil
 import rasterio
 import numpy as np
 from rasterio.mask import mask
+import xml.etree.ElementTree as ET
 from scipy.signal import convolve2d
-
+from src.satwater.utils import satwutils
 from src.satwater.adjacent_correction import adjcorr_functions as adjc_fun
 
 class AdjCorrClass:
 
-    def __int__(self, input_image: str, output_path: str, tree:str):
+    def __int__(self):
 
-        self.tree = tree
+        pass
+
+    def apply_adjcorr(self, input_path, output_path, params):
+
+        self.tree = ET.parse(os.path.join(input_path, "MTD.xml"))
         self.output_path = output_path
-        self.image_path = input_image
-
-    def run(self):
+        self.image_path = input_path
 
         root = self.tree.getroot()
         metadata_6sv = adjc_fun.xml_to_dict(root)
 
-        # Identify the pixels in which we're gonna apply the adjacent correction
-        # The first gdf is the water mask, the second is the buffer. We will apply the correction in the buffer, and then clip the water mask to drop pixels in the border.
-        water_shp_final = adjc_fun.get_mask_water(self.image_path)
+        params['aux_info']['date_time_info'] = metadata_6sv["General_Info"]["datetime_image"]
+
+        shutil.copy(os.path.join(input_path, "MTD.xml"), os.path.join(output_path, "MTD.xml"))
 
         # Selecting only those important band for AQUAVis
         if metadata_6sv["General_Info"]["satellite"] == "MSI_S2":
@@ -30,7 +35,7 @@ class AdjCorrClass:
             filtered_dict = {key: value for key, value in metadata_6sv["General_Info"]["bandname"].items() if
                              any(band in value for band in aquavis_bands)}
 
-            updated_dict = {key: value.replace(".jp2", ".TIF") for key, value in filtered_dict.items()}
+            updated_dict = {key: value.replace(".jp2", ".tif") for key, value in filtered_dict.items()}
             filtered_dict = updated_dict
             band_names = list(filtered_dict.values())
 
@@ -40,12 +45,14 @@ class AdjCorrClass:
             filtered_dict = {key: value for key, value in metadata_6sv["General_Info"]["bandname"].items() if
                              any(band in value for band in aquavis_bands)}
 
+            updated_dict = {key: value.replace(".TIF", ".tif") for key, value in filtered_dict.items()}
+            filtered_dict = updated_dict
+
             band_names = list(filtered_dict.values())
 
         band_index = list(filtered_dict.keys())
 
         for i in range(len(band_index)):
-
             band_key = band_index[i]
 
             # Environmental function
@@ -62,14 +69,6 @@ class AdjCorrClass:
                 transform = src.transform
                 nodata_value = src.nodata
 
-                if len(water_shp_final) != 0:  # in case of water_shp_final return empty
-                    polygon_mask, _ = mask(src, water_shp_final.geometry, crop=False, nodata=src.nodata)
-                    polygon_mask = polygon_mask[0, :, :]
-                    polygon_mask_binary = np.where(polygon_mask == 0, 0, 1)
-
-                else:
-                    polygon_mask_binary = np.zeros_like(image_rs_no_adjc)
-
             # Apply the convolution to calculate the <p>
             convolved_image = convolve2d(image_rs_no_adjc, Fr, mode='same', boundary='fill', fillvalue=0)
 
@@ -81,14 +80,38 @@ class AdjCorrClass:
             # Apply the adjacency correction
             sr_corr = adjc_fun.Adjacency_correction(metadata_6sv, band_key, image_rs_no_adjc, rho_env)
 
-            # Only update pixels where mask == 1
-            adjc_sr = np.where(polygon_mask_binary == 1, sr_corr, image_rs_no_adjc)
-
-            output_tif = os.path.join(self.output_path, f"corrected_band_{band_names[i]}")
+            output_tif = os.path.join(self.output_path, f"{band_names[i]}")
 
             # Open a new file to write the adjusted raster
             with rasterio.open(output_tif, 'w', driver='GTiff',
                                count=1, dtype=sr_corr.dtype,
-                               width=adjc_sr.shape[1], height=adjc_sr.shape[0],
-                               crs=crs_image, transform=transform, nodata=nodata_value) as dst:
-                dst.write(adjc_sr, 1)  # Write the data to the file
+                               width=sr_corr.shape[1], height=sr_corr.shape[0],
+                               crs=crs_image, transform=transform, compress='lzw', nodata=nodata_value) as dst:
+                dst.write(sr_corr, 1)  # Write the data to the file
+
+    def run(self, params):
+
+        if params['aux_info']['sat_name'] == "sentinel":
+
+            sentinel_scene_dir = os.path.join(params['output_dir'], 'atmcor')
+            input_path = [os.path.join(sentinel_scene_dir, scene) for scene in os.listdir(sentinel_scene_dir)]
+
+        else:
+
+            landsat_path = os.path.join(params['output_dir'], 'atmcor')
+            input_path = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
+
+        params['output_dir_adjcorr'] = os.path.join(params['output_dir'], 'adjcorr')
+        satwutils.create_dir(params['output_dir_adjcorr'])
+
+        for scene in input_path:
+
+            if params['aux_info']['sat_name'] == "sentinel":
+                scene_name = glob.glob(os.path.join(scene, '*.SAFE*'))[0]
+            else:
+                scene_name = glob.glob(os.path.join(scene, 'LC*'))[0]
+
+            output_path = os.path.join(params['output_dir_adjcorr'], os.path.basename(scene_name))
+            satwutils.create_dir(output_path)
+
+            self.apply_adjcorr(scene_name, output_path, params)

@@ -6,6 +6,7 @@ import geopandas as gpd
 from shapely.geometry import shape
 import xml.etree.ElementTree as ET
 from rasterio.features import shapes
+from scipy.ndimage import binary_dilation as bn
 
 def raster2shp(raster_numpy, raster_transform, raster_crs):
 
@@ -34,6 +35,35 @@ def buffer_into_polygon(gdf, buffer_size):
     # gdf_largest = gdf_cleaned.sort_values(by='area', ascending=False).head(1)
 
     return gdf_cleaned
+
+
+def create_inward_buffer(input_raster_path, buffer_distance_meters=3000, pixel_resolution=30):
+    band_path = [i for i in os.listdir(input_raster_path)]
+    green_band = next((band for band in band_path if "B3" in band or "B03" in band), None)
+    swir_band = next((band for band in band_path if "B11" in band or "B6" in band or "B06" in band), None)
+
+    xda_green = rxr.open_rasterio(os.path.join(input_raster_path, green_band))
+    xda_swir = rxr.open_rasterio(os.path.join(input_raster_path, swir_band))
+
+    xda_green_matched = xda_green.rio.reproject_match(xda_swir)
+
+    mndwi = (xda_green_matched - xda_swir) / (xda_green_matched + xda_swir)
+    mndwi_mask = mndwi > 0.2
+    water_mask = mndwi_mask.astype(int).values[0, :, :]
+
+    # Calculate buffer in pixels (buffer distance converted to pixels)
+    buffer_pixels = int(abs(buffer_distance_meters) / pixel_resolution)
+
+    # Invert the water mask (0 -> water, 1 -> non-water)
+    inverted_mask = np.where(water_mask == 1, 0, 1)
+
+    # Apply dilation to the inverted mask to expand the non-water area (expand the outer non-water body)
+    dilated_mask = bn(inverted_mask, structure=np.ones((buffer_pixels, buffer_pixels)))
+
+    # Invert back the dilated mask to create the inward buffer (1 for inside the buffer, 0 for outside)
+    buffer_mask = np.where(np.logical_and(dilated_mask == 1, water_mask == 1), 1, 0)
+
+    return
 
 def get_mask_water(img_path):
 

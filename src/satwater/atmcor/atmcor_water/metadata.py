@@ -16,7 +16,8 @@ class Metadata_MSI_S2:
                  networkdrive_letter: str,
                  satellite: str,
                  aero_type: str,
-                 mode=None):
+                 mode=None,
+                 msi_tile=None):
 
         self.MTD = '/MTD_TL.xml'
         self.BAND_ID = '_B'
@@ -34,6 +35,7 @@ class Metadata_MSI_S2:
         self.satellite = satellite
         self.aero_type = aero_type
         self.mode = mode
+        self.msi_tile = msi_tile
 
         self.type = str("nan")
         self.bandname = list("nan")
@@ -54,10 +56,15 @@ class Metadata_MSI_S2:
 
         path = [i for i in glob.glob(os.path.join(self.path_main + self.GRANULE, '*')) if 'L1C_' in i]
 
+        self.rescale_factor()
+
         self.s2path = path[0] + self.IMG_DATA
 
         # Return the bouding box of the image:
-        self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
+        self.roi = tool.return_water(self.s2path, self.rescale, self.msi_tile)
+
+        if len(self.roi) == 0:
+            self.roi = tool.return_bbox(os.path.join(self.s2path, os.listdir(self.s2path)[3]))
 
         # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
         bands_order = ['B01', 'B02', 'B03', 'B04','B05', 'B06','B07','B08','B8A', 'B09', 'B10', 'B11', 'B12']
@@ -73,7 +80,6 @@ class Metadata_MSI_S2:
         self.date_and_time()
         self.geo()
         self.read_coefficient()
-        self.rescale_factor()
 
         df = pd.DataFrame({'img': [self.path_main], 'aod': [self.aod], 'wv': [self.water_vapour], 'oz': [self.ozone], 'alt': [self.altitude]})
         df.to_csv(self.path_dest + '/' + 'atm_parameters.csv')
@@ -208,7 +214,8 @@ class Metadata_OLI_L89:
                  networkdrive_letter: str,
                  satellite: str,
                  aero_type: str,
-                 mode=None):
+                 mode=None,
+                 msi_tile=None):
 
         self.MTD = '/MTD_TL.xml'
         self.BAND_ID = '_B'
@@ -225,6 +232,7 @@ class Metadata_OLI_L89:
         self.satellite = satellite
         self.aero_type = aero_type
         self.mode = mode
+        self.msi_tile = msi_tile
 
         self.type = str("nan")
         self.bandname = list("nan")
@@ -254,17 +262,24 @@ class Metadata_OLI_L89:
 
         path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
 
-        # Return the bouding box of the image:
-        #self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
-        self.roi = tool.return_bbox(self.path_main)
+        self.dict_metadata = tool.xml_to_json(str(path[0]))  # metadata from sensor
+        self.rescale_factor()
 
-        self.dict_metadata = tool.xml_to_json(str(path[0])) # metadata from sensor
+        # Return the bouding box of the image:
+        self.roi = tool.return_water(self.path_main, self.rescale, self.msi_tile)
+
+        if len(self.roi) == 0:
+            self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
+
+        #self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
+        #self.roi = tool.return_bbox(self.path_main)
+
         self.type = str(self.dict_metadata['LANDSAT_METADATA_FILE']['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID'][0:4]) # safe number L8 or L9
         self.date_and_time()
         self.geo()
         self.read_coefficient()
-        self.rescale_factor()
 
+        os.makedirs(self.path_dest, exist_ok = True)
         df = pd.DataFrame({'img': [self.path_main], 'aod': [self.aod], 'wv': [self.water_vapour], 'oz': [self.ozone], 'alt': [self.altitude]})
         df.to_csv(self.path_dest + '/' + 'atm_parameters.csv')
 

@@ -11,6 +11,8 @@ from rasterio.features import shapes
 from rasterio.transform import Affine
 from rasterio.features import rasterize
 
+from src.satwater.water_mask import generate_water_mask as wm
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,9 +24,11 @@ class WaterMaskClass:
     """
 
     def __init__(self):
+
         pass
 
     def raster2shp(
+
         self, raster_numpy: np.ndarray, raster_transform: Affine, raster_crs: CRS
     ) -> gpd.GeoDataFrame:
         """
@@ -81,7 +85,7 @@ class WaterMaskClass:
 
         band_path = [i for i in os.listdir(img_path) if i.endswith(".tif")]
         green_band = next((band for band in band_path if "B3" in band or "B03" in band), None)
-        swir_band = next((band for band in band_path if "B11" in band), (band for band in band_path if "B6" in band or "B06" in band))
+        swir_band = next((band for band in band_path if "B11" in band or "B6" in band), None)
 
         xda_green = rxr.open_rasterio(os.path.join(img_path, green_band))
         xda_swir = rxr.open_rasterio(os.path.join(img_path, swir_band))
@@ -100,9 +104,9 @@ class WaterMaskClass:
         # Include adjacency buffer
         water_shp = self.raster2shp(water_mask, _transform, _crs)
 
-        water_shp_buffered = self.buffer_into_polygon(water_shp, 300)
+        #water_shp_buffered = self.buffer_into_polygon(water_shp, 300)
 
-        return water_shp_buffered
+        return water_shp
 
     def clip_water(self, img_path: str, params) -> None:
 
@@ -114,18 +118,25 @@ class WaterMaskClass:
         Returns:
             clipped water images
         """
+        select_sat = params['aux_info']['sat_name']
 
-        files = [folder for folder in os.listdir(img_path) if os.path.isdir(os.path.join(img_path, folder))][0]
+        tiles = [params[select_sat].get('tiles', [])][0]
+        sentinel_tiles_path = r"C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\MGRS_tiles.shp"
+        msi_tiles_gdf = gpd.read_file(sentinel_tiles_path)
+        tile_gdf = msi_tiles_gdf[msi_tiles_gdf['Name'] == tiles]
 
-        img_path = os.path.join(img_path, files)
+        water_aux = self.get_mask_water(img_path)
+        water_1 = water_aux.geometry.unary_union
+        water_2 = wm.create_water_mask(img_path, tile_gdf).geometry.unary_union
 
-        water_shp_buffered = self.get_mask_water(img_path)
+        final_polygon = water_1.union(water_2)
+        water_shp_buffered = gpd.GeoDataFrame(geometry=[final_polygon], crs=water_aux.crs)
 
         band_paths = [i for i in os.listdir(img_path) if i.endswith(".tif")]
 
         for band in band_paths:
 
-            with rasterio.open(band) as src:
+            with rasterio.open(os.path.join(img_path, band)) as src:
 
                 band_data = src.read(1)
                 out_meta = src.meta.copy()
@@ -141,17 +152,20 @@ class WaterMaskClass:
                 )
 
                 masked_band = np.where(water_raster == 1, band_data, -9999)
+                final_image = np.where(masked_band < 0, -9999, masked_band)
 
                 profile = src.profile
                 profile.update(dtype=band_data.dtype, nodata=src.nodata)
 
                 # Save clipped image
-                output_path = os.path.join(params['output_dir_wm'], os.path.basename(params['output_dir_wm']), os.path.basename(band))
+                if not os.path.exists(os.path.join(params['output_dir_wm'], os.path.basename(img_path))): os.makedirs(os.path.join(params['output_dir_wm'], os.path.basename(img_path)))
+
+                output_path = os.path.join(params['output_dir_wm'], os.path.basename(img_path), os.path.basename(band))
 
                 with rasterio.open(output_path, "w", **profile) as dst:
-                    dst.write(masked_band, 1)
+                    dst.write(final_image, 1)
 
-    def run_water_mask(self, params):
+    def run(self, params):
 
         """
         Runs a given set of parameters to initiate a selection process for satellite data.

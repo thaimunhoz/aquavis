@@ -20,9 +20,9 @@ def gen_tiles(landsat_scene: str, params: dict) -> None:
 
     print(f"Processing Landsat scene: {landsat_scene}")
 
-    landsat_bands = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6']
+    landsat_bands = ['B2', 'B3', 'B4', 'B5', 'B6']
     landsat_scene_all_bands = [
-        f for f in glob.glob(os.path.join(landsat_scene, '*LC*', '*_B*.tif')) if
+        f for f in glob.glob(os.path.join(landsat_scene, '*_B*.tif')) if
         any(band in f for band in landsat_bands)
     ]
 
@@ -109,7 +109,7 @@ def run(select_sat: str, params: dict) -> None:
             satwutils.create_dir(os.path.join(params['output_dir_tiling'], 'landsat'))
 
             # Gather Landsat scenes for the corresponding Sentinel tile
-            landsat_path = os.path.join(params['output_dir'], 'atmcor', 'landsat', sentinel_tile)
+            landsat_path = os.path.join(params['output_dir'], 'glintcorr')
             landsat_scenes = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
 
             # Process Landsat scenes sequentially

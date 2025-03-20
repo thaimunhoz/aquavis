@@ -70,6 +70,12 @@ class Atmosphere:
                                   'view_az': self.parameters.geometry[i - x]['view_az'],
                                   'solar_zn': self.parameters.geometry[i - x]['solar_zn'],
                                   'solar_az': self.parameters.geometry[i - x]['solar_az'],
+                                  'tg_OG_co': float(s.outputs.transmittance_co.total),
+                                  'tg_OG_c02': float(s.outputs.transmittance_co2.total),
+                                  'tg_OG_o2': float(s.outputs.transmittance_oxygen.total),
+                                  'tg_OG_no2': float(s.outputs.transmittance_no2.total),
+                                  'tg_OG_ch4': float(s.outputs.transmittance_ch4.total),
+                                  'Tg_H20': float(s.outputs.transmittance_water.total),
                                   'Tg_O3': float(s.outputs.transmittance_ozone.total),
                                   'p_atm': float(s.outputs.atmospheric_intrinsic_reflectance),
                                   'optical_depth_rayleigh': float(s.outputs.optical_depth_total.rayleigh)}
