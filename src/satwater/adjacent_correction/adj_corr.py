@@ -7,6 +7,7 @@ from rasterio.mask import mask
 import xml.etree.ElementTree as ET
 from scipy.signal import convolve2d
 from src.satwater.utils import satwutils
+from scipy.signal import fftconvolve
 from src.satwater.adjacent_correction import adjcorr_functions as adjc_fun
 
 class AdjCorrClass:
@@ -14,6 +15,31 @@ class AdjCorrClass:
     def __int__(self):
 
         pass
+
+    def fast_convolution(self, image, kernel):
+
+        # Handle NaNs
+        image = np.nan_to_num(image, nan=0)
+        kernel = np.nan_to_num(kernel, nan=0)
+
+        # Get original image and kernel sizes
+        image_h, image_w = image.shape
+        kernel_h, kernel_w = kernel.shape
+
+        # Compute necessary padding (same as 'fill' boundary in convolve2d)
+        pad_h = kernel_h // 2
+        pad_w = kernel_w // 2
+
+        # Pad image with zeros (replicates 'boundary=fill', fillvalue=0)
+        padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
+
+        # Perform convolution in the frequency domain
+        convolved = fftconvolve(padded_image, kernel, mode='same')
+
+        # Crop the convolution result to match original image size
+        convolved_cropped = convolved[pad_h:pad_h + image_h, pad_w:pad_w + image_w]
+
+        return convolved_cropped
 
     def apply_adjcorr(self, input_path, output_path, params):
 
@@ -70,10 +96,10 @@ class AdjCorrClass:
                 nodata_value = src.nodata
 
             # Apply the convolution to calculate the <p>
-            convolved_image = convolve2d(image_rs_no_adjc, Fr, mode='same', boundary='fill', fillvalue=0)
+            convolved_image = self.fast_convolution(image_rs_no_adjc, Fr)
 
             one_value_array = np.full_like(image_rs_no_adjc, 1)
-            convolved_Fr = convolve2d(one_value_array, Fr, mode='same', boundary='fill', fillvalue=0)
+            convolved_Fr = self.fast_convolution(one_value_array, Fr)
 
             rho_env = convolved_image / convolved_Fr
 
@@ -112,6 +138,11 @@ class AdjCorrClass:
                 scene_name = glob.glob(os.path.join(scene, 'LC*'))[0]
 
             output_path = os.path.join(params['output_dir_adjcorr'], os.path.basename(scene_name))
+
+            if os.path.exists(output_path):  # Check if the path exists
+                print(f"Skipping {output_path}, already exists.")
+                continue
+
             satwutils.create_dir(output_path)
 
             self.apply_adjcorr(scene_name, output_path, params)

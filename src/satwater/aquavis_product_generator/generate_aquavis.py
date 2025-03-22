@@ -65,22 +65,29 @@ def get_scene_details(scene_path, sat, params):
 
     if sat == 'sentinel':
 
-        scene_name = os.path.basename(scene_path)
-        date_time = scene_name.split('_')[2]
+        day = params['aux_info']['date_time_info'].split("T")[0].split("-")
+        hour = params['aux_info']['date_time_info'].split("T")[1].split(":")
+
+        date_time = f"{day[0]}{day[1]}{day[2]}T{hour[0]}{hour[1]}{hour[2]}"
+
+        # scene_name = os.path.basename(scene_path)
+        # date_time = scene_name.split('_')[2]
 
     else:
+        day = params['aux_info']['date_time_info'].split("T")[0].split("-")
+        hour = params['aux_info']['date_time_info'].split("T")[1].split(":")
 
-        info = params['aux_info']['date_time_info'].split("T")
+        date_time = f"{day[0]}{day[1]}{day[2]}T{hour[0]}{hour[1]}{hour[2]}"
 
-        scene_name = os.path.basename(scene_path)
-
-        img = glob.glob(fr'{scene_path}\*.tif')[0]
-        hh = os.path.basename(img).split("_")[5]
-        mm = os.path.basename(img).split("_")[6]
-        ss = os.path.basename(img).split("_")[7]
-
-        date_time = scene_name.split('_')[3]
-        date_time = f"{date_time}T{hh}{mm}{ss}"
+        # scene_name = os.path.basename(scene_path)
+        #
+        # img = glob.glob(fr'{scene_path}\*.tif')[0]
+        # hh = os.path.basename(img).split("_")[5]
+        # mm = os.path.basename(img).split("_")[6]
+        # ss = os.path.basename(img).split("_")[7]
+        #
+        # date_time = scene_name.split('_')[3]
+        # date_time = f"{date_time}T{hh}{mm}{ss}"
 
     return date_time
 

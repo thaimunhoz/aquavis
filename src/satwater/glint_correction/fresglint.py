@@ -78,6 +78,7 @@ class FresGLINT:
         mask_nodata = np.where((arr < 0) | (arr > 1) | (arr == np.nan), 0, 1)
         # arr_integer = (arr * 10000).astype(np.int16)
         arr_integer = np.where(mask_nodata == 0, -9999, arr)
+        arr_integer = arr_integer.squeeze()
 
         # Save corrected image
         profile.update(
@@ -98,7 +99,8 @@ class FresGLINT:
         if (metadata["General_Info"]["satellite"] == "MSI_S2") and (band_key == "B8"):
 
             arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band))
-            arr1020[arr1020 < 0] = 0
+            arr1020 = np.nan_to_num(arr1020, nan=0.00001)  # Replace NaNs with 0.0001
+            arr1020[arr1020 <= 0] = 0.00001
             #gmask20 = np.where(arr1020 >= 1, 1, 0)
 
             ang20 = self.calculate_angle_images(metadata, arr1020)
@@ -112,7 +114,7 @@ class FresGLINT:
 
             r_glint = arr1020 * (target['Tdir'] / reference_20['Tdir']) * (target['rFresnel'] / reference_20['rFresnel'])
             #m_glint = gmask20 == 1
-            r_glint = r_glint.values[0, :, :]
+            r_glint = r_glint
 
         elif (metadata["General_Info"]["satellite"] == "MSI_S2") and (band_key == "B11"):
 
@@ -133,7 +135,7 @@ class FresGLINT:
 
             r_glint = self.arr1020 * (target['Tdir'] / self.reference['Tdir']) * (target['rFresnel'] / self.reference['rFresnel'])
             #m_glint = self.gmask == 1
-            r_glint = r_glint[0, :, :]
+            r_glint = r_glint
 
         array_path = os.path.join(self.path_main, filtered_dict[band_key])
 
@@ -159,6 +161,7 @@ class FresGLINT:
         mask_nodata = np.where((r_corr < 0) | (r_corr > 1) | (r_corr == np.nan), 0, 1)
         # arr_integer = (r_corr_final * 10000).astype(np.int16)
         arr_integer = np.where(mask_nodata == 0, -9999, r_corr)
+        arr_integer = arr_integer.squeeze()
 
         profile.update(
             dtype=r_corr.dtype.name,
@@ -198,7 +201,8 @@ class FresGLINT:
         self.arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band)).rio.reproject_match(
             rxr.open_rasterio(os.path.join(self.path_main, red_band))
         ).values.astype(float)
-        self.arr1020[self.arr1020 < 0] = 0
+        self.arr1020 = np.nan_to_num(self.arr1020, nan=0.0001)  # Replace NaNs with 0.0001
+        self.arr1020[self.arr1020 <= 0] = 0.0001
 
         # Glint mask
         #self.gmask = self.calculate_glint_mask(red_band, swir_band)

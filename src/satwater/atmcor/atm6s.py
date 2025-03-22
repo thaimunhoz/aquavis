@@ -96,8 +96,15 @@ def run(select_sat: str, params: dict) -> None:
 
         # Run in a for loop
         for img, output_path in zip(all_imgs, output_paths):
-            run_gceratmos(img, output_path, select_sat, tiles[0])
 
+            if os.path.exists(output_path):  # Check if the path exists
+                print(f"Skipping {output_path}, already exists.")
+                continue  # Skip to the next iteration
+            try:
+                run_gceratmos(img, output_path, select_sat, tiles[0])
+            except Exception as e:
+                print(f"Failed to run atmospheric correction for image {img}. Error: {e}")
+                continue
         # Run atmospheric correction in parallel
         # with Pool(processes=params['aux_info']['n_cores']) as pool:
         #
