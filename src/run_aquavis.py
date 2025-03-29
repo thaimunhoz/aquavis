@@ -65,16 +65,16 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
         raise
 
     # Run processing steps
-    # if input_toa == "GEE":
-    #     SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
-    #
-    # else:
-    #     SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
+    if input_toa == "GEE":
+        SatWater_i.run_atmcor_gee()  # 1. Atmospheric correction using GEE as input TOA source
+
+    else:
+        SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
     SatWater_i.run_adjcorr() # 2. Adjacent correction
-
+    #
     SatWater_i.run_glint_corr() # 3. Glint correction
-
+    #
     if select_sat == "landsat":
         SatWater_i.run_tiling() # 4. Tiling for Landsat
 

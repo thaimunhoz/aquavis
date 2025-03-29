@@ -10,6 +10,7 @@ from shapely.geometry import shape
 from rasterio.features import shapes
 from rasterio.transform import Affine
 from rasterio.features import rasterize
+from src.satwater.utils import satwutils
 
 from src.satwater.water_mask import generate_water_mask as wm
 
@@ -120,14 +121,17 @@ class WaterMaskClass:
         """
         select_sat = params['aux_info']['sat_name']
 
+        satwutils.create_dir(os.path.join(params['output_dir_flags'], os.path.basename(img_path)))
+
+        # Return water mask
         tiles = [params[select_sat].get('tiles', [])][0]
         sentinel_tiles_path = r"C:\Users\tml411\Documents\Python Scripts\hls_water\src\satwater\auxfiles\tiles\MGRS_tiles.shp"
         msi_tiles_gdf = gpd.read_file(sentinel_tiles_path)
         tile_gdf = msi_tiles_gdf[msi_tiles_gdf['Name'] == tiles]
 
-        water_aux = self.get_mask_water(img_path)
+        water_aux = self.get_mask_water(img_path) # Get the water mask from the SWIR and MNDWI bands
         water_1 = water_aux.geometry.unary_union
-        water_2 = wm.create_water_mask(img_path, tile_gdf).geometry.unary_union
+        water_2 = wm.create_water_mask(img_path, tile_gdf).geometry.unary_union # Get the water mask from the JRC algorithm
 
         final_polygon = water_1.union(water_2)
         water_shp_buffered = gpd.GeoDataFrame(geometry=[final_polygon], crs=water_aux.crs)
@@ -164,6 +168,9 @@ class WaterMaskClass:
 
                 with rasterio.open(output_path, "w", **profile) as dst:
                     dst.write(final_image, 1)
+
+                with rasterio.open(os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(img_path)), f"{os.path.basename(img_path)}_water.tif"), "w", **profile) as dst:
+                    dst.write(water_raster, 1)
 
     def run(self, params):
 

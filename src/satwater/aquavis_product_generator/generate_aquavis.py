@@ -8,7 +8,7 @@ import numpy as np
 import multiprocessing
 from rasterio.warp import Resampling
 from src.satwater.utils import satwutils
-
+from src.satwater.qa_flag_band import qa_flag_band
 def convert_float_to_int16(input_raster, output_raster, params, scale_factor=10000, nodata=-9999):
 
     '''
@@ -26,6 +26,7 @@ def convert_float_to_int16(input_raster, output_raster, params, scale_factor=100
 
         # Read the input raster as a float array
         arr = src.read(1).astype('float32')
+        arr = np.where((arr > -0.1) & (arr < 0), 0.0001, arr)
         arr[arr <= 0] = np.nan
 
         # Output in rho or rrs:
@@ -100,6 +101,8 @@ def gen_hls(scene_path, params):
         params: dict, parameters for the HLS generation
     '''
 
+    satwutils.create_dir(os.path.join(params['output_dir_flags'], os.path.basename(scene_path)))
+
     sentinel_bands = ['B02', 'B03', 'B04', 'B8A', 'B11', 'B12']
 
     date_time = get_scene_details(scene_path, params["sat"], params)
@@ -141,18 +144,26 @@ def gen_hls(scene_path, params):
     try:
         if params["sat"] == 'landsat':
             cloud_path = os.path.join(params["output_dir"], "atmcor", "landsat", os.path.basename(params["output_dir"]), os.path.basename(scene_path), "SatClouds", "temp", "cloud.tif")
-            destination_path = os.path.join(out_dir_hls, cloudname)
-            shutil.copy(cloud_path, destination_path)
+            #destination_path = os.path.join(out_dir_hls, cloudname)
+            #shutil.copy(cloud_path, destination_path)
+            shutil.copy(cloud_path, os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(scene_path)), f"{os.path.basename(scene_path)}_cloud_shadow.tif"))
+
         else:
-            cloud_path = os.path.join(params["output_dir"], "atmcor", "landsat", os.path.basename(params["output_dir"]), os.path.basename(scene_path), "SatClouds", "temp", "cloud10.tif")
+            cloud_path = os.path.join(params["output_dir"], "atmcor", os.path.basename(scene_path).replace('.SAFE', ''), "SatClouds", "temp", "cloud10.tif")
             destination_path = os.path.join(out_dir_hls, cloudname)
 
             data = rioxarray.open_rasterio(cloud_path)
             resampled_data = data.rio.reproject(data.rio.crs, resolution=(30, 30), resampling=Resampling.bilinear)
-            resampled_data.rio.to_raster(destination_path)
+            #resampled_data.rio.to_raster(destination_path)
+            resampled_data.rio.to_raster(os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(scene_path)), f"{os.path.basename(scene_path)}_cloud_shadow.tif"))
 
     except:
         print(f"No cloud information found for scene {scene_path}")
+
+    #Save QA flag band
+    qa_band = qa_flag_band.run_qa_flag(params, scene_path)
+    qa_band_path = os.path.join(out_dir_hls, cloudname)
+    qa_band.rio.to_raster(qa_band_path)
 
 def run(params):
 
@@ -202,31 +213,27 @@ def run(params):
         tiling_folder = fr'{params["output_dir"]}\tiling'
         temp_folder = fr'{params["output_dir"]}\temp'
         wm_folder = fr'{params["output_dir"]}\water_mask'
+        ajd_folder = fr'{params["output_dir"]}\adjcorr'
+        glint_folder = fr'{params["output_dir"]}\glintcorr'
+        qa_folder = fr'{params["output_dir"]}\QA_flags'
 
         # Clean folders
+        os.chmod(atmcor_folder, 0o777)
+        os.chmod(tiling_folder, 0o777)
+        os.chmod(temp_folder, 0o777)
+        os.chmod(wm_folder, 0o777)
+        os.chmod(ajd_folder, 0o777)
+        os.chmod(glint_folder, 0o777)
+        os.chmod(qa_folder, 0o777)
+
         try:
-            if params['aux_info']["keep_atmor"] == True:
+            if params['aux_info']["keep_atmor"] == False: shutil.rmtree(atmcor_folder)
 
-                os.chmod(tiling_folder, 0o777)
-                os.chmod(temp_folder, 0o777)
-                os.chmod(wm_folder, 0o777)
+            shutil.rmtree(tiling_folder)
+            shutil.rmtree(temp_folder)
+            shutil.rmtree(wm_folder)
+            shutil.rmtree(ajd_folder)
+            shutil.rmtree(glint_folder)
+            shutil.rmtree(qa_folder)
 
-                shutil.rmtree(tiling_folder)
-                shutil.rmtree(temp_folder)
-                shutil.rmtree(wm_folder)
-
-            else:
-
-                os.chmod(atmcor_folder, 0o777)
-                os.chmod(tiling_folder, 0o777)
-                os.chmod(temp_folder, 0o777)
-                os.chmod(wm_folder, 0o777)
-
-                shutil.rmtree(atmcor_folder)
-                shutil.rmtree(tiling_folder)
-                shutil.rmtree(temp_folder)
-                shutil.rmtree(wm_folder)
-
-        except:
-
-            pass
+        except: pass

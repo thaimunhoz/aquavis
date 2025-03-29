@@ -77,7 +77,7 @@ class FresGLINT:
 
         mask_nodata = np.where((arr < 0) | (arr > 1) | (arr == np.nan), 0, 1)
         # arr_integer = (arr * 10000).astype(np.int16)
-        arr_integer = np.where(mask_nodata == 0, -9999, arr)
+        arr_integer = np.where(mask_nodata == 0, 0.0001, arr)
         arr_integer = arr_integer.squeeze()
 
         # Save corrected image
@@ -99,8 +99,9 @@ class FresGLINT:
         if (metadata["General_Info"]["satellite"] == "MSI_S2") and (band_key == "B8"):
 
             arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band))
-            arr1020 = np.nan_to_num(arr1020, nan=0.00001)  # Replace NaNs with 0.0001
-            arr1020[arr1020 <= 0] = 0.00001
+            arr1020 = np.nan_to_num(arr1020, nan=0.0001)  # Replace NaNs with 0.0001
+
+            arr1020[arr1020 <= 0] = 0.0001
             #gmask20 = np.where(arr1020 >= 1, 1, 0)
 
             ang20 = self.calculate_angle_images(metadata, arr1020)
@@ -143,6 +144,9 @@ class FresGLINT:
             arr = src.read(1).astype(float)
             profile = src.profile
 
+        arr_aux = rxr.open_rasterio(array_path)
+        self.vnir_values.append(((arr_aux >= -0.1) & (arr_aux < 0)).astype(int))
+
         r_corr = self.correct_glint(arr, r_glint)
 
         self.save_corrected_image(r_corr, profile, band_name)
@@ -160,7 +164,7 @@ class FresGLINT:
 
         mask_nodata = np.where((r_corr < 0) | (r_corr > 1) | (r_corr == np.nan), 0, 1)
         # arr_integer = (r_corr_final * 10000).astype(np.int16)
-        arr_integer = np.where(mask_nodata == 0, -9999, r_corr)
+        arr_integer = np.where(mask_nodata == 0, 0.0001, r_corr)
         arr_integer = arr_integer.squeeze()
 
         profile.update(
@@ -201,6 +205,14 @@ class FresGLINT:
         self.arr1020 = rxr.open_rasterio(os.path.join(self.path_main, swir_band)).rio.reproject_match(
             rxr.open_rasterio(os.path.join(self.path_main, red_band))
         ).values.astype(float)
+
+        # Return only the pixels with values greater than 0.005 and save the mask in the QA flags directory
+        swir_da = rxr.open_rasterio(os.path.join(self.path_main, swir_band)).rio.reproject_match(
+            rxr.open_rasterio(os.path.join(self.path_main, red_band))
+        )
+        self.glint_mask = (swir_da > 0.0157).astype(int)  # Keeps it as a DataArray
+        self.swir_negative = ((swir_da >= -0.1) & (swir_da < 0)).astype(int)  # Keeps it as a DataArray
+
         self.arr1020 = np.nan_to_num(self.arr1020, nan=0.0001)  # Replace NaNs with 0.0001
         self.arr1020[self.arr1020 <= 0] = 0.0001
 
@@ -225,6 +237,8 @@ class FresGLINT:
         band_names = list(filtered_dict.values())
         band_index = list(filtered_dict.keys())
 
+        self.vnir_values = []
+
         for i in range(len(band_index)):
 
             band_key = band_index[i]
@@ -247,9 +261,21 @@ class FresGLINT:
         params['output_dir_glintcorr'] = os.path.join(params['output_dir'], 'glintcorr')
         satwutils.create_dir(params['output_dir_glintcorr'])
 
+        # Create a directory to address the QA flag bands
+        params['output_dir_flags'] = os.path.join(params['output_dir'], 'QA_flags')
+        satwutils.create_dir(params['output_dir_flags'])
+
         for scene in input_path:
 
             output_path = os.path.join(params['output_dir_glintcorr'], os.path.basename(scene))
             satwutils.create_dir(output_path)
 
             self.apply_glintcorr(scene, output_path)
+
+            satwutils.create_dir(os.path.join(params['output_dir_flags'], os.path.basename(scene)))
+            self.glint_mask.rio.to_raster(os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(scene)), f"{os.path.basename(scene)}_glint_mask.tif"))
+            self.swir_negative.rio.to_raster(os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(scene)), f"{os.path.basename(scene)}_swir_negative.tif"))
+
+            for i in range(len(self.vnir_values)):
+                img = self.vnir_values[i]
+                img.rio.to_raster(os.path.join(os.path.join(params['output_dir_flags'], os.path.basename(scene)), f"{os.path.basename(scene)}_vnir_neg_{i}.tif"))
