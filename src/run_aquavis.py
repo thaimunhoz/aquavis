@@ -72,9 +72,9 @@ def run_satwater(select_sat: str, tile: str, period_ini: str, period_end: str, o
         SatWater_i.run_atmcor() # 1. Atmospheric correction using local TOA source
 
     SatWater_i.run_adjcorr() # 2. Adjacent correction
-    #
+
     SatWater_i.run_glint_corr() # 3. Glint correction
-    #
+
     if select_sat == "landsat":
         SatWater_i.run_tiling() # 4. Tiling for Landsat
 

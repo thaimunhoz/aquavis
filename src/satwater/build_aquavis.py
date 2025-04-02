@@ -4,11 +4,11 @@ from typing import Optional, Dict, Any
 
 from src.satwater.atmcor import atm6s as atmcor
 from src.satwater.tiling import tiles as tiling
-from src.satwater.water_mask.WaterMaskClass import WaterMaskClass
 from src.satwater.tiling import resample as resample
 from .visualization import plot_images as visualization
 from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
 from src.satwater.glint_correction.fresglint import FresGLINT
+from src.satwater.water_mask.WaterMaskClass import WaterMaskClass
 from src.satwater.adjacent_correction.adj_corr import AdjCorrClass
 from .aquavis_product_generator import generate_aquavis as aquavis
 
