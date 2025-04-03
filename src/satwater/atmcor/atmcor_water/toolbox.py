@@ -29,7 +29,6 @@ def export(array: float, index: str, reference: str, dest: str) -> None:
     Exports a single-band raster to the specified destination using rioxarray.
     """
 
-    #filename_out_factor = f"{dest}/{index[:-4]}.tif"
     filename_out_factor = dest
 
     # Open the reference raster to copy geospatial information

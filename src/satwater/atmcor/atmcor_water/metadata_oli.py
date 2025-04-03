@@ -4,30 +4,58 @@ import calendar
 import numpy as np
 import pandas as pd
 import rioxarray as rxr
-from src.satwater.atmcor.atmcor_water import toolbox as tool
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Any
+
+from src.satwater.atmcor.atmcor_water import toolbox as tool
 from src.satwater.atmcor.atmcor_water.atm.coefficient import MCDExtractWindow
 
+
+@dataclass
+class DateTime:
+    """Stores date and time values with type hints."""
+    day: int = np.nan
+    month: int = np.nan
+    year: int = np.nan
+    time_hh: float = np.nan
+
+    def __str__(self) -> str:
+        return f'day: {self.day}, month: {self.month}, year: {self.year}, time_hh: {self.time_hh}'
+
+
 class Metadata_OLI_L89:
+    """Processes Landsat 8/9 OLI metadata and atmospheric parameters."""
 
-    def __init__(self,
-                 path_main: str,
-                 path_dest: str,
-                 networkdrive_letter: str,
-                 satellite: str,
-                 aero_type: str,
-                 mode=None,
-                 msi_tile=None):
+    # Constants
+    MTL_FILE_PATTERN = '*.xml'
+    BAND_ID = '_B'
+    MTL_ID = 'MTL'
+    ANGLE_FILE_PATTERNS = {
+        'solar_azimuth': '*SAA.tif',
+        'solar_zenith': '*SZA.tif',
+        'view_azimuth': '*VAA.tif',
+        'view_zenith': '*VZA.tif'
+    }
+    MOD08_D3_PATH = ':/dbcenter/products/atm/modis/C61/MOD08_D3'
+    MDE_PATH = ':/dbcenter/products/land/dem30m'
+    TEMP_COEF_PATH = ':/public/temp_dir'
 
-        self.MTD = '/MTD_TL.xml'
-        self.BAND_ID = '_B'
-        self.MTD_ID = 'MTL'
-        self.ANG_ID = 'ANG'
-        self.MOD08_D3 = ':/dbcenter/products/atm/modis/C61/MOD08_D3'
-        self.MDE = ':/dbcenter/products/land/dem30m'
-        self.TEMP_COEF = ':/public/temp_dir'
-        self.TEMP = path_dest + '/' + path_main[-40:] + '/tempdir'
+    # Band processing order (excluding thermal bands)
+    OPTICAL_BANDS_ORDER = ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7']
+    EXCLUDED_BANDS = ['B9', 'B10', 'B11', 'B12']
 
+    def __init__(
+            self,
+            path_main: str,
+            path_dest: str,
+            networkdrive_letter: str,
+            satellite: str,
+            aero_type: str,
+            mode: Optional[str] = None,
+            msi_tile: Optional[str] = None
+    ):
+        """Initialize metadata processor."""
         self.path_main = path_main
         self.path_dest = path_dest
         self.networkdrive_letter = networkdrive_letter
@@ -36,191 +64,203 @@ class Metadata_OLI_L89:
         self.mode = mode
         self.msi_tile = msi_tile
 
-        self.type = str("nan")
-        self.bandname = list("nan")
-        self.s2path = str("nan")
-        self.aod = float("nan")
-        self.water_vapour = float("nan")
-        self.ozone = float("nan")
-        self.altitude = float("nan")
-        self.geometry = {}
-        self.datetime = {}
-        self.rescale = {}
+        # Initialize attributes with proper types
+        self.type: str = "nan"
+        self.bandname: List[str] = ["nan"]
+        self.aod: float = np.nan
+        self.water_vapour: float = np.nan
+        self.ozone: float = np.nan
+        self.altitude: float = np.nan
+        self.geometry: Dict[int, Dict[str, float]] = {}
+        self.datetime: DateTime = DateTime()
+        self.rescale: Dict[int, Dict[str, float]] = {}
+        self.roi: Any = None
+        self.dict_metadata: Dict[str, Any] = {}
 
-    def run(self):
+    def run(self) -> None:
+        """Main method to process all metadata."""
+        self._process_band_names()
+        self._load_metadata_file()
+        self._process_rescale_factors()
+        self._determine_roi()
+        self._process_datetime()
+        self._process_geometry()
+        self._read_atmospheric_coefficients()
+        self._save_atmospheric_parameters()
 
-        """
-        Scans the metadata.
-        """
+    def _process_band_names(self) -> None:
+        """Process and order optical band names, excluding thermal bands."""
+        all_bands = [
+            f for f in os.listdir(self.path_main)
+            if self.BAND_ID in f and
+               not any(excluded in f for excluded in self.EXCLUDED_BANDS)
+        ]
 
-        # Defining the preferred order of spectral bands, including multiple naming conventions for the same band.
-        bands_order = ['B1', 'B2','B3', 'B4','B5','B6', 'B7','B8','B9','B10','B11','B12']
+        self.bandname = sorted(
+            all_bands,
+            key=lambda x: next((i for i, band in enumerate(self.OPTICAL_BANDS_ORDER)
+                                if band in x), float('inf'))
+        )
 
-        aux_bandnames = [i for i in os.listdir(self.path_main) if
-                         self.BAND_ID in i and 'B9' not in i and 'B10' not in i and 'B11' not in i and 'B12' not in i]
+    def _load_metadata_file(self) -> None:
+        """Load and parse the MTL metadata file."""
+        mtl_files = glob.glob(os.path.join(self.path_main, self.MTL_FILE_PATTERN))
+        mtl_file = next((f for f in mtl_files if self.MTL_ID in f), None)
 
-        # ensure selected bands are sorted in the order defined in bands_order
-        self.bandname = sorted(aux_bandnames, key=lambda x: next((i for i, band in enumerate(bands_order) if band in x), float('inf')))
+        if not mtl_file:
+            raise FileNotFoundError(f"No MTL file found in {self.path_main}")
 
-        path = [i for i in glob.glob(os.path.join(self.path_main, '*.xml')) if self.MTD_ID in i]
+        self.dict_metadata = tool.xml_to_json(mtl_file)
+        self.type = str(self.dict_metadata['LANDSAT_METADATA_FILE'][
+                            'PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID'][0:4])
 
-        self.dict_metadata = tool.xml_to_json(str(path[0]))  # metadata from sensor
-        self.rescale_factor()
+    def _process_rescale_factors(self) -> None:
+        """Extract rescaling factors for all bands."""
+        for i in range(1, 9):  # Bands 1-8
+            add_key = f'REFLECTANCE_ADD_BAND_{i}'
+            mult_key = f'REFLECTANCE_MULT_BAND_{i}'
 
-        # Return the bouding box of the image:
+            self.rescale[i - 1] = {
+                'add': float(self.dict_metadata['LANDSAT_METADATA_FILE'][
+                                 'LEVEL1_RADIOMETRIC_RESCALING'][add_key]),
+                'mult': float(self.dict_metadata['LANDSAT_METADATA_FILE'][
+                                  'LEVEL1_RADIOMETRIC_RESCALING'][mult_key])
+            }
+
+    def _determine_roi(self) -> None:
+        """Determine region of interest, with fallback to full image."""
         self.roi = tool.return_water(self.path_main, self.rescale, self.msi_tile)
 
-        if len(self.roi) == 0:
-            self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
+        if not self.roi:
+            sample_band = glob.glob(os.path.join(self.path_main, self.bandname[0]))[0]
+            self.roi = tool.return_bbox(sample_band)
 
-        #self.roi = tool.return_bbox(glob.glob(os.path.join(self.path_main, self.bandname[0]))[0])
-        #self.roi = tool.return_bbox(self.path_main)
+    def _process_datetime(self) -> None:
+        """Extract and process acquisition datetime from metadata."""
+        img_attrs = self.dict_metadata['LANDSAT_METADATA_FILE']['IMAGE_ATTRIBUTES']
 
-        self.type = str(self.dict_metadata['LANDSAT_METADATA_FILE']['PRODUCT_CONTENTS']['LANDSAT_PRODUCT_ID'][0:4]) # safe number L8 or L9
-        self.date_and_time()
-        self.geo()
-        self.read_coefficient()
+        date_acquired = img_attrs['DATE_ACQUIRED']
+        time_parts = img_attrs['SCENE_CENTER_TIME'][0:16].split(':')
 
-        os.makedirs(self.path_dest, exist_ok = True)
-        df = pd.DataFrame({'img': [self.path_main], 'aod': [self.aod], 'wv': [self.water_vapour], 'oz': [self.ozone], 'alt': [self.altitude]})
-        df.to_csv(self.path_dest + '/' + 'atm_parameters.csv')
+        time_hh = (int(time_parts[0]) +
+                   (float(time_parts[1]) / 60) +
+                   (float(time_parts[2]) / 3600))
 
-    def date_and_time(self):
-
-        """
-        Returns the date and the time.
-        """
-
-        # Verifies the metadata:
-        date_acquired = self.dict_metadata['LANDSAT_METADATA_FILE']['IMAGE_ATTRIBUTES']['DATE_ACQUIRED']
         date = datetime.strptime(date_acquired, '%Y-%m-%d').timetuple()
-        scene_center_time = self.dict_metadata['LANDSAT_METADATA_FILE']['IMAGE_ATTRIBUTES']['SCENE_CENTER_TIME'][0:16].split(':')
-        time_hh = int(scene_center_time[0]) + (float(scene_center_time[1]) / 60) + (float(scene_center_time[2]) / 3600)
+        self.datetime = DateTime(
+            day=date.tm_mday,
+            month=date.tm_mon,
+            year=date.tm_year,
+            time_hh=time_hh
+        )
 
-        # Export date and time in a metadata structure:
-        value = DateTime()
-        value.day = date.tm_mday
-        value.month = date.tm_mon
-        value.year = date.tm_year
-        value.time_hh = time_hh
-        self.datetime = value
+    def _process_geometry(self) -> None:
+        """Process sun and view angles for all bands."""
+        angle_data = {}
 
-    def geo(self):
+        # Load all angle files
+        for angle_type, pattern in self.ANGLE_FILE_PATTERNS.items():
+            file_path = glob.glob(os.path.join(self.path_main, pattern))[0]
+            angle_data[angle_type] = rxr.open_rasterio(file_path).values.astype(float)
+            angle_data[angle_type][angle_data[angle_type] == 0] = np.nan
+            angle_data[angle_type][angle_data[angle_type] == -9999] = np.nan
 
-        """
-        Returns the geometry of observation and illumination.
-        """
+        # Calculate mean angles (divided by 100 as per original code)
+        mean_angles = {
+            'solar_az': np.nanmean(angle_data['solar_azimuth']) / 100,
+            'solar_zn': np.nanmean(angle_data['solar_zenith']) / 100,
+            'view_az': np.nanmean(angle_data['view_azimuth']) / 100,
+            'view_zn': np.nanmean(angle_data['view_zenith']) / 100
+        }
 
-        # Sun azimuth [az] and zenith [zn] angle:
-        # View azimuth [az] and zenith [zn] angles:
-        # It considers the angle averages of the scene.
-        # The band 4 (red) is used as reference because it is near the center of the OLI/Landsat-8/9 focal plane.
+        # Apply same angles to all bands (1-8)
+        for i in range(8):
+            self.geometry[i] = mean_angles.copy()
 
-        solar_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SAA.tif'))[0]).values.astype(float)
-        solar_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*SZA.tif'))[0]).values.astype(float)
-        view_az = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VAA.tif'))[0]).values.astype(float)
-        view_zen = rxr.open_rasterio(glob.glob(os.path.join(self.path_main, '*VZA.tif'))[0]).values.astype(float)
+    def _read_atmospheric_coefficients(self) -> None:
+        """Read atmospheric coefficients with fallback strategies."""
+        date_str = f"{self.datetime.year}-{self.datetime.month}-{self.datetime.day}"
 
-        solar_az[(solar_az == 0) | (solar_az == -9999)] = np.nan
-        solar_zen[(solar_zen == 0) | (solar_zen == -9999)] = np.nan
-        view_az[(view_az == 0) | (view_az == -9999)] = np.nan
-        view_zen[(view_zen == 0) | (view_zen == -9999)] = np.nan
+        # Try daily values first
+        self._try_daily_coefficients(date_str)
 
-        for i in range(0, 8):
+        # Fallback to weekly averages if needed
+        if self._needs_fallback():
+            self._try_weekly_coefficients(date_str)
 
-            output = {}
+        # Final fallback to monthly averages
+        if self._needs_fallback():
+            self._try_monthly_coefficients()
 
-            output['solar_az'] = np.mean(solar_az[~np.isnan(solar_az)]) / 100
-            output['solar_zn'] = np.mean(solar_zen[~np.isnan(solar_zen)]) / 100
-            output['view_az'] = np.mean(view_az[~np.isnan(view_az)]) / 100
-            output['view_zn'] = np.mean(view_zen[~np.isnan(view_zen)]) / 100
+    def _try_daily_coefficients(self, date_str: str) -> None:
+        """Attempt to get daily atmospheric coefficients."""
+        mcd_scanner = self._create_mcd_scanner(date_str, date_str)
+        self._extract_coefficients(mcd_scanner)
 
-            self.geometry[i] = output
+    def _try_weekly_coefficients(self, date_str: str) -> None:
+        """Attempt to get weekly atmospheric coefficients."""
+        date = datetime.strptime(date_str, '%Y-%m-%d')
+        start_of_week = date - timedelta(days=date.weekday())
+        end_of_week = start_of_week + timedelta(days=6)
 
-    def rescale_factor(self):
+        mcd_scanner = self._create_mcd_scanner(
+            start_of_week.strftime('%Y-%m-%d'),
+            end_of_week.strftime('%Y-%m-%d')
+        )
+        self._extract_coefficients(mcd_scanner, include_altitude=False)
 
-        """
-        Returns the factor values to convert from DN_TOA to REFLECTANCE_TOA
-        """
+    def _try_monthly_coefficients(self) -> None:
+        """Attempt to get monthly atmospheric coefficients."""
+        month_name = calendar.month_name[self.datetime.month]
+        mcd_scanner = self._create_mcd_scanner("", "")
 
-        # It obtains the factor values to convert from DN_TOA to REFLECTANCE_TOA:
-        for i in range(1, 9):
-            ADD_BAND = float(self.dict_metadata['LANDSAT_METADATA_FILE']['LEVEL1_RADIOMETRIC_RESCALING']['REFLECTANCE_ADD_BAND_' + str(i)])
-            MULT_BAND = float(self.dict_metadata['LANDSAT_METADATA_FILE']['LEVEL1_RADIOMETRIC_RESCALING']['REFLECTANCE_MULT_BAND_' + str(i)])
-            self.rescale[i - 1] = {'add': ADD_BAND, 'mult': MULT_BAND}
+        self.aod = mcd_scanner.get_modis_monthly_mean(
+            month_name, 'AOD', self.roi)
+        self.water_vapour = mcd_scanner.get_modis_monthly_mean(
+            month_name, 'Water_Vapor', self.roi)
+        self.ozone = mcd_scanner.get_modis_monthly_mean(
+            month_name, 'Total_Ozone', self.roi) / 1000
 
-    def read_coefficient(self):
+    def _create_mcd_scanner(self, start_date: str, end_date: str) -> MCDExtractWindow:
+        """Create MCDExtractWindow instance with current configuration."""
+        return MCDExtractWindow(
+            dir_mod08=f"{self.networkdrive_letter}{self.MOD08_D3_PATH}",
+            dir_mde=f"{self.networkdrive_letter}{self.MDE_PATH}",
+            dir_temp=f"{self.networkdrive_letter}{self.TEMP_COEF_PATH}",
+            ini_date=start_date,
+            end_date=end_date,
+            bounding_shp=self.roi
+        )
 
-        """
-        Recovers the atmospheric coefficients from MODIS (MOD08_D3) and SRTM.
-        """
+    def _extract_coefficients(self, mcd_scanner: MCDExtractWindow, include_altitude: bool = True) -> None:
+        """Extract coefficients from MCD scanner."""
+        mod08_data = mcd_scanner.run_extraction_mod08d3()
 
-        # Atmospheric parameters:
-        # Average values are obtained based on a time window (in days). The maximum window is 7-days.
-        # The values are returned from the time window size closer the target date.
+        self.aod = float(mod08_data['AOD_mean'].mean())
+        self.water_vapour = mod08_data['WV_mean'].mean()
+        self.ozone = mod08_data['OZ_mean'].mean() / 1000  # Convert to cm_atm
 
-        start_date = str(self.datetime.year) + '-' + str(self.datetime.month) + '-' + str(self.datetime.day)
-        end_date = str(self.datetime.year) + '-' + str(self.datetime.month) + '-' + str(self.datetime.day)
+        if include_altitude:
+            mde_data = mcd_scanner.run_extract_mde()
+            self.altitude = mde_data['MDE_mean'].mean() / 1000  # Convert to km
 
-        mcd_scanner = MCDExtractWindow(dir_mod08=str(self.networkdrive_letter) + self.MOD08_D3,
-                                           dir_mde=str(self.networkdrive_letter) + self.MDE,
-                                           dir_temp=str(self.networkdrive_letter) + self.TEMP_COEF,
-                                           ini_date=start_date,
-                                           end_date=end_date,
-                                           bounding_shp=self.roi)
+    def _needs_fallback(self) -> bool:
+        """Check if we need to try fallback coefficient sources."""
+        return (np.isnan(self.aod) or self.aod == 0.0 or
+                np.isnan(self.water_vapour) or self.water_vapour == 0.0 or
+                np.isnan(self.ozone) or self.ozone == 0.0)
 
-        # dataset_info_mcd19a2 = mcd_scanner.run_extraction_mcd19a2()
-        dataset_info_mod08 = mcd_scanner.run_extraction_mod08d3()
-        dataset_info_mde = mcd_scanner.run_extract_mde()
+    def _save_atmospheric_parameters(self) -> None:
+        """Save atmospheric parameters to CSV file."""
+        os.makedirs(self.path_dest, exist_ok=True)
 
-        self.aod = float(dataset_info_mod08['AOD_mean'].mean())
-        self.water_vapour = dataset_info_mod08['WV_mean'].mean()
-        self.ozone = dataset_info_mod08['OZ_mean'].mean() / 1000  # in cm_atm
-        self.altitude = dataset_info_mde['MDE_mean'].mean() / 1000  # in km
+        params = {
+            'img': [self.path_main],
+            'aod': [self.aod],
+            'wv': [self.water_vapour],
+            'oz': [self.ozone],
+            'alt': [self.altitude]
+        }
 
-        # Weekly mean values:
-        if (np.isnan(self.aod) or self.aod == 0.0) or (np.isnan(self.water_vapour) or self.water_vapour == 0.0) or (np.isnan(self.ozone) or self.ozone == 0.0):
-            date = datetime.strptime(start_date, '%Y-%m-%d')
-
-            start_of_week = (date - timedelta(days=date.weekday()))
-            end_of_week = (start_of_week + timedelta(days=6))
-
-            start_of_week_str = start_of_week.strftime('%Y-%m-%d')
-            end_of_week_str = end_of_week.strftime('%Y-%m-%d')
-
-            mcd_scanner = MCDExtractWindow(dir_mod08=str(self.networkdrive_letter) + self.MOD08_D3,
-                                               dir_mde=str(self.networkdrive_letter) + self.MDE,
-                                               dir_temp=str(self.networkdrive_letter) + self.TEMP_COEF,
-                                               ini_date=start_of_week_str,
-                                               end_date=end_of_week_str,
-                                               bounding_shp=self.roi)
-
-            dataset_info_mod08 = mcd_scanner.run_extraction_mod08d3()
-
-            self.aod = dataset_info_mod08['AOD_mean'].mean()
-            self.water_vapour = dataset_info_mod08['WV_mean'].mean()
-            self.ozone = dataset_info_mod08['OZ_mean'].mean() / 1000  # in cm_atm
-
-        # Montly mean values:
-        if (np.isnan(self.aod) or self.aod == 0.0) or (np.isnan(self.water_vapour) or self.water_vapour == 0.0) or (np.isnan(self.ozone) or self.ozone == 0.0):
-            month_name = calendar.month_name[self.datetime.month]
-
-            gdf = self.roi
-
-            self.aod = mcd_scanner.get_modis_monthly_mean(month_name, 'AOD', gdf)
-            self.water_vapour = mcd_scanner.get_modis_monthly_mean(month_name, 'Water_Vapor', gdf)
-            self.ozone = mcd_scanner.get_modis_monthly_mean(month_name, 'Total_Ozone', gdf) / 1000
-
-class DateTime(object):
-
-    """
-    Stores date and time values.
-    """
-
-    day = float("nan")
-    month = float("nan")
-    year = float("nan")
-    time_hh = float("nan")
-
-    def __str__(self):
-        return 'day: %f, month: %f, year: %f, timehh: %f' % (self.day, self.month, self.year, self.time_hh)
+        output_path = os.path.join(self.path_dest, 'atm_parameters.csv')
+        pd.DataFrame(params).to_csv(output_path, index=False)

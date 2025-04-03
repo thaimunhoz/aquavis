@@ -1,6 +1,6 @@
 import logging
 from typing import Optional
-from src.satwater.atmcor.atmcor_water.atmcor_water import Gceratmos
+from src.satwater.atmcor.atmcor_water.gceratmos import GCERAtmos
 from src.satwater.atmcor.atmcor_water.cloud.SatClouds.satclouds import Satcloud
 
 # Configure logging
@@ -63,7 +63,7 @@ class AtmosphericCorrector:
 
             # Run atmospheric correction
             logger.info(f"Starting atmospheric correction for {path_main}")
-            gceratmos = Gceratmos(
+            gceratmos = GCERAtmos(
                 path_main,
                 path_dest,
                 self.NETWORK_DRIVE,

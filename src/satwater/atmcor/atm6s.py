@@ -144,7 +144,8 @@ class AtmcorProcessor:
 
     def process_tile(self, tile: str) -> None:
         """
-        Process all images for a given tile through atmospheric correction.
+        Search images in the database based on MSI tile and date range.
+        Create output paths and run atmospheric correction.
 
         Args:
             tile (str): Tile identifier

@@ -28,22 +28,7 @@ def find_missing_dois(base_dir, expected_dois):
 
     return missing_dois_by_year
 
-# Example usage *******************************************************************************************
 
-#base_directory = r"Z:\dbcenter\products\atm\modis\C61\MOD08_D3"  # Modify this to your directory
-#expected_dois = np.arange(1, 365, 1)  # Modify based on actual DOI structure
-
-#missing_dois = find_missing_dois(base_directory, expected_dois)
-
-#def convert_numpy_to_python(obj):
-#    if isinstance(obj, np.integer):
-#        return int(obj)
-#    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
-
-#with open('missing_dois.json', 'w') as json_file:
-#    json.dump(missing_dois, json_file, indent=4, default=convert_numpy_to_python)
-
-# *********************************************************************************************************
 
 import os
 import shutil
