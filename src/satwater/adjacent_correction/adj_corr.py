@@ -3,146 +3,193 @@ import glob
 import shutil
 import rasterio
 import numpy as np
-from rasterio.mask import mask
+from typing import Dict, List, Any
 import xml.etree.ElementTree as ET
-from scipy.signal import convolve2d
-from src.satwater.utils import satwutils
 from scipy.signal import fftconvolve
+
+from src.satwater.utils import satwutils
 from src.satwater.adjacent_correction import adjcorr_functions as adjc_fun
 
 class AdjCorrClass:
+    """Handles adjacent correction for satellite imagery."""
 
-    def __int__(self):
+    # Constants for band selection
+    AQUAVIS_BANDS = {
+        "MSI_S2": ["B2", "B02", "B3", "B03", "B4", "B04", "B5", "B05", "B8A", "B8A", "B11"],
+        "default": ["B2", "B02", "B3", "B03", "B4", "B04", "B5", "B05", "B6", "B06"]
+    }
 
-        pass
+    def __init__(self):
+        """Initialize the adjacent correction processor."""
+        self.tree = None
+        self.output_path = None
+        self.image_path = None
 
-    def fast_convolution(self, image, kernel):
+    def fast_convolution(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
+        """
+        Perform fast convolution using FFT.
 
-        # Handle NaNs
+        Args:
+            image: Input image array
+            kernel: Convolution kernel
+
+        Returns:
+            Convolved image with same dimensions as input
+        """
+        # Handle NaNs by converting to zeros
         image = np.nan_to_num(image, nan=0)
         kernel = np.nan_to_num(kernel, nan=0)
 
-        # Get original image and kernel sizes
+        # Calculate padding needed
         image_h, image_w = image.shape
         kernel_h, kernel_w = kernel.shape
+        pad_h, pad_w = kernel_h // 2, kernel_w // 2
 
-        # Compute necessary padding (same as 'fill' boundary in convolve2d)
-        pad_h = kernel_h // 2
-        pad_w = kernel_w // 2
-
-        # Pad image with zeros (replicates 'boundary=fill', fillvalue=0)
-        padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)), mode='constant', constant_values=0)
-
-        # Perform convolution in the frequency domain
+        # Pad image and perform FFT convolution
+        padded_image = np.pad(image, ((pad_h, pad_h), (pad_w, pad_w)),mode='constant', constant_values=0)
         convolved = fftconvolve(padded_image, kernel, mode='same')
 
-        # Crop the convolution result to match original image size
-        convolved_cropped = convolved[pad_h:pad_h + image_h, pad_w:pad_w + image_w]
+        # Crop to original dimensions
+        return convolved[pad_h:pad_h + image_h, pad_w:pad_w + image_w]
 
-        return convolved_cropped
+    def apply_adjcorr(self, input_path: str, output_path: str, params: Dict[str, Any]) -> None:
+        """
+        Apply adjacent correction to satellite imagery.
 
-    def apply_adjcorr(self, input_path, output_path, params):
+        Args:
+            input_path: Path to input scene directory
+            output_path: Path for output corrected files
+            params: Processing parameters dictionary
+        """
+        self._setup_paths(input_path, output_path)
+        self._parse_metadata()
 
-        self.tree = ET.parse(os.path.join(input_path, "MTD.xml"))
-        self.output_path = output_path
+        # Update parameters with metadata info
+        params['aux_info']['date_time_info'] = self.metadata["General_Info"]["datetime_image"]
+        self._copy_metadata_file()
+
+        # Process each band
+        band_info = self._get_band_info()
+        for band_key, band_file in band_info.items():
+            self._process_single_band(band_key, band_file)
+
+    def _setup_paths(self, input_path: str, output_path: str) -> None:
+        """Initialize paths for processing."""
         self.image_path = input_path
+        self.output_path = output_path
+        os.makedirs(output_path, exist_ok=True)
 
-        root = self.tree.getroot()
-        metadata_6sv = adjc_fun.xml_to_dict(root)
+    def _parse_metadata(self) -> None:
+        """Parse and store XML metadata."""
+        metadata_file = os.path.join(self.image_path, "MTD.xml")
+        self.tree = ET.parse(metadata_file)
+        self.metadata = adjc_fun.xml_to_dict(self.tree.getroot())
 
-        params['aux_info']['date_time_info'] = metadata_6sv["General_Info"]["datetime_image"]
+    def _copy_metadata_file(self) -> None:
+        """Copy metadata file to output directory."""
+        shutil.copy(os.path.join(self.image_path, "MTD.xml"),
+                    os.path.join(self.output_path, "MTD.xml"))
 
-        shutil.copy(os.path.join(input_path, "MTD.xml"), os.path.join(output_path, "MTD.xml"))
+    def _get_band_info(self) -> Dict[str, str]:
+        """Get dictionary of band keys and filenames for processing."""
+        satellite = self.metadata["General_Info"]["satellite"]
+        bands = self.AQUAVIS_BANDS.get(satellite, self.AQUAVIS_BANDS["default"])
 
-        # Selecting only those important band for AQUAVis
-        if metadata_6sv["General_Info"]["satellite"] == "MSI_S2":
+        # Filter and update band names
+        band_dict = {
+            key: value for key, value in self.metadata["General_Info"]["bandname"].items()
+            if any(band in value for band in bands)
+        }
 
-            aquavis_bands = ["B2", "B02", "B3", "B03", "B4", "B04", "B5", "B05", "B8A", "B8A", "B11"]
-            filtered_dict = {key: value for key, value in metadata_6sv["General_Info"]["bandname"].items() if
-                             any(band in value for band in aquavis_bands)}
+        # Standardize file extensions
+        ext = ".tif" if satellite == "MSI_S2" else ".TIF"
+        return {
+            key: value.replace(ext, ".tif")
+            for key, value in band_dict.items()
+        }
 
-            updated_dict = {key: value.replace(".jp2", ".tif") for key, value in filtered_dict.items()}
-            filtered_dict = updated_dict
-            band_names = list(filtered_dict.values())
+    def _process_single_band(self, band_key: str, band_file: str) -> None:
+        """Process adjacent correction for a single band."""
+        # Read and prepare input image
+        with rasterio.open(os.path.join(self.image_path, band_file)) as src:
+            image_data = self._prepare_image_data(src)
+            crs, transform, nodata = src.crs, src.transform, src.nodata
 
-        else:
+        # Calculate environmental function and apply convolution
+        Fr = adjc_fun.atmospheric_point_scattering_function(self.metadata, band_key)
+        convolved_image = self.fast_convolution(image_data, Fr)
 
-            aquavis_bands = ["B2", "B02", "B3", "B03", "B4", "B04", "B5", "B05", "B6", "B06"]
-            filtered_dict = {key: value for key, value in metadata_6sv["General_Info"]["bandname"].items() if
-                             any(band in value for band in aquavis_bands)}
+        # Calculate rho_env
+        ones_array = np.full_like(image_data, 1)
+        convolved_Fr = self.fast_convolution(ones_array, Fr)
+        rho_env = convolved_image / convolved_Fr
 
-            updated_dict = {key: value.replace(".TIF", ".tif") for key, value in filtered_dict.items()}
-            filtered_dict = updated_dict
+        # Apply adjacency correction
+        sr_corr = adjc_fun.Adjacency_correction(
+            self.metadata, band_key, image_data, rho_env
+        )
 
-            band_names = list(filtered_dict.values())
+        # Save corrected image
+        output_file = os.path.join(self.output_path, band_file)
+        self._save_corrected_image(sr_corr, crs, transform, nodata, output_file)
 
-        band_index = list(filtered_dict.keys())
+    def _prepare_image_data(self, src: rasterio.DatasetReader) -> np.ndarray:
+        """Prepare image data by handling nodata values."""
+        image_data = src.read(1)
+        return np.where(np.isin(image_data, [-9999, 0]), np.nan, image_data)
 
-        for i in range(len(band_index)):
-            band_key = band_index[i]
+    def _save_corrected_image(self, data: np.ndarray, crs: Any,
+                              transform: Any, nodata: Any, path: str) -> None:
+        """Save corrected image to GeoTIFF."""
+        with rasterio.open(
+                path,
+                'w',
+                driver='GTiff',
+                count=1,
+                dtype=data.dtype,
+                width=data.shape[1],
+                height=data.shape[0],
+                crs=crs,
+                transform=transform,
+                compress='lzw',
+                nodata=nodata
+        ) as dst:
+            dst.write(data, 1)
 
-            # Environmental function
-            Fr = adjc_fun.atmospheric_point_scattering_function(metadata_6sv, band_key)
+    def run(self, params: Dict[str, Any]) -> None:
+        """
+        Run adjacent correction on all scenes in the output directory.
 
-            # Surface Reflectance image without the adjacent correction
-            with rasterio.open(os.path.join(self.image_path, filtered_dict[band_key])) as src:
-                image_rs_no_adjc = src.read(1)
-
-                image_rs_no_adjc = np.where(image_rs_no_adjc == -9999, np.nan, image_rs_no_adjc)
-                image_rs_no_adjc = np.where(image_rs_no_adjc == 0, np.nan, image_rs_no_adjc)
-
-                crs_image = src.crs
-                transform = src.transform
-                nodata_value = src.nodata
-
-            # Apply the convolution to calculate the <p>
-            convolved_image = self.fast_convolution(image_rs_no_adjc, Fr)
-
-            one_value_array = np.full_like(image_rs_no_adjc, 1)
-            convolved_Fr = self.fast_convolution(one_value_array, Fr)
-
-            rho_env = convolved_image / convolved_Fr
-
-            # Apply the adjacency correction
-            sr_corr = adjc_fun.Adjacency_correction(metadata_6sv, band_key, image_rs_no_adjc, rho_env)
-
-            output_tif = os.path.join(self.output_path, f"{band_names[i]}")
-
-            # Open a new file to write the adjusted raster
-            with rasterio.open(output_tif, 'w', driver='GTiff',
-                               count=1, dtype=sr_corr.dtype,
-                               width=sr_corr.shape[1], height=sr_corr.shape[0],
-                               crs=crs_image, transform=transform, compress='lzw', nodata=nodata_value) as dst:
-                dst.write(sr_corr, 1)  # Write the data to the file
-
-    def run(self, params):
-
-        if params['aux_info']['sat_name'] == "sentinel":
-
-            sentinel_scene_dir = os.path.join(params['output_dir'], 'atmcor')
-            input_path = [os.path.join(sentinel_scene_dir, scene) for scene in os.listdir(sentinel_scene_dir)]
-
-        else:
-
-            landsat_path = os.path.join(params['output_dir'], 'atmcor')
-            input_path = [os.path.join(landsat_path, scene) for scene in os.listdir(landsat_path)]
-
+        Args:
+            params: Dictionary containing processing parameters
+        """
+        # Set up input and output paths
+        base_path = os.path.join(params['output_dir'], 'atmcor')
         params['output_dir_adjcorr'] = os.path.join(params['output_dir'], 'adjcorr')
         satwutils.create_dir(params['output_dir_adjcorr'])
 
-        for scene in input_path:
+        # Get input scenes based on satellite type
+        input_paths = self._get_input_paths(params, base_path)
 
-            if params['aux_info']['sat_name'] == "sentinel":
-                scene_name = glob.glob(os.path.join(scene, '*.SAFE*'))[0]
-            else:
-                scene_name = glob.glob(os.path.join(scene, 'LC*'))[0]
-
+        for scene_path in input_paths:
+            scene_name = self._get_scene_name(params, scene_path)
             output_path = os.path.join(params['output_dir_adjcorr'], os.path.basename(scene_name))
 
-            if os.path.exists(output_path):  # Check if the path exists
+            if os.path.exists(output_path):
                 print(f"Skipping {output_path}, already exists.")
                 continue
 
             satwutils.create_dir(output_path)
-
             self.apply_adjcorr(scene_name, output_path, params)
+
+    def _get_input_paths(self, params: Dict[str, Any], base_path: str) -> List[str]:
+        """Get list of input scene paths based on satellite type."""
+        if params['aux_info']['sat_name'] == "sentinel":
+            return [os.path.join(base_path, scene) for scene in os.listdir(base_path)]
+        return [os.path.join(base_path, scene) for scene in os.listdir(base_path)]
+
+    def _get_scene_name(self, params: Dict[str, Any], scene_path: str) -> str:
+        """Get scene name based on satellite type."""
+        if params['aux_info']['sat_name'] == "sentinel":
+            return glob.glob(os.path.join(scene_path, '*.SAFE*'))[0]
+        return glob.glob(os.path.join(scene_path, 'LC*'))[0]
