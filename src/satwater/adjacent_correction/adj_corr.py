@@ -11,6 +11,7 @@ from src.satwater.utils import satwutils
 from src.satwater.adjacent_correction import adjcorr_functions as adjc_fun
 
 class AdjCorrClass:
+
     """Handles adjacent correction for satellite imagery."""
 
     # Constants for band selection
@@ -20,10 +21,85 @@ class AdjCorrClass:
     }
 
     def __init__(self):
+
         """Initialize the adjacent correction processor."""
+
         self.tree = None
         self.output_path = None
         self.image_path = None
+
+    def Adjacency_correction(self, atmosphere_parameters, band, array_band, adjc_array):
+
+        """
+        Removes the adjacency effect of the image, using the equation described in the Vermote et al. (1997).
+        """
+
+        # Zenith view angle -> degree:
+        view_z = float(atmosphere_parameters["InputData"]['sixSV_params'][band]['view_z'])
+
+        # Atmopheric optical depth (Rayleigh + Aerosol) -> Atmospheric_OpticalDepth:
+        Atmospheric_OpticalDepth = float(
+            atmosphere_parameters["InputData"]['sixSV_params'][band]['optical_depth__total_AeroRay'])
+
+        # Total transmittance UPWARD (Rayleigh + Aerosol) -> T_upward:
+        T_upward = float(
+            atmosphere_parameters["InputData"]['sixSV_params'][band]['total_scattering_transmittance_upward'])
+
+        # Total transmittance UPWARD direct (Rayleigh + Aerosol) -> T_upward_dirAeroRay:
+        T_upward_dirAeroRay = np.exp(-Atmospheric_OpticalDepth / np.cos(view_z * (np.pi / 180)))
+
+        # Total transmittance UPWARD diffuse (Rayleigh + Aerosol) -> T_upward_difAeroRay
+        T_upward_difAeroRay = T_upward - T_upward_dirAeroRay
+
+        # Surface reflectance without adjacency effect - Vermote et al. (1997):
+        sr_corr = array_band - (adjc_array * T_upward_difAeroRay)
+
+        return sr_corr
+
+    def atmospheric_point_scattering_function(atmosphere_parameters, band):
+
+        """
+        Calculates the Fr weight per distance.
+        """
+
+        # Converts the grid distance to km:
+        if atmosphere_parameters["General_Info"]["satellite"] == "MSI_S2":
+            if band == "B11":  # 20m
+                grid_matrix = create_grid(30, 20)
+            else:  # 10m
+                grid_matrix = create_grid(60, 10)
+        else:  # 30m
+            grid_matrix = create_grid(20, 30)
+
+        radius_km = grid_matrix / 1000
+
+        # Zenith view angle -> degree:
+        view_z = float(atmosphere_parameters["InputData"]['sixSV_params'][band]['view_z'])
+
+        # Rayleigh UPWARD diffuse transmittance -> T_upward_difRayleigh:
+        Rayleigh_OpticalDepth = float(
+            atmosphere_parameters["InputData"]['sixSV_params'][band]['optical_depth__total_Ray'])
+        T_upward_Rayleigh = float(
+            atmosphere_parameters["InputData"]['sixSV_params'][band]['rayleigh_scatransmi_upward'])
+        T_upward_dirRayleigh = np.exp(-Rayleigh_OpticalDepth / np.cos(view_z * (np.pi / 180)))
+        T_upward_difRayleigh = T_upward_Rayleigh - T_upward_dirRayleigh
+
+        # Aerosol UPWARD diffuse transmittance -> T_upward_difAerosol:
+        Aerosol_OpticalDepth = float(
+            atmosphere_parameters["InputData"]['sixSV_params'][band]['optical_depth__total_Aero'])
+        T_upward_Aerosol = float(atmosphere_parameters["InputData"]['sixSV_params'][band]['aerosol_scatransmi_upward'])
+        T_upward_dirAerosol = np.exp(-Aerosol_OpticalDepth / np.cos(view_z * (np.pi / 180)))
+        T_upward_difAerosol = T_upward_Aerosol - T_upward_dirAerosol
+
+        # Calculates the Aerosol's Fr and Rayleigh's Fr functions using the equation described by Vermote et al.(2006):
+        FrRayleigh = ((0.930 * np.exp(-0.08 * radius_km)) + (0.070 * np.exp(-1.10 * radius_km)))
+        FrAerosol = ((0.448 * np.exp(-0.27 * radius_km)) + (0.552 * np.exp(-2.83 * radius_km)))
+
+        # Calculates the APSF (Fr) -> Atmospheric Point Scattering Function:
+        Fr = (T_upward_difRayleigh * FrRayleigh + T_upward_difAerosol * FrAerosol) / (
+                T_upward_difRayleigh + T_upward_difAerosol)
+
+        return Fr
 
     def fast_convolution(self, image: np.ndarray, kernel: np.ndarray) -> np.ndarray:
         """
@@ -155,32 +231,6 @@ class AdjCorrClass:
                 nodata=nodata
         ) as dst:
             dst.write(data, 1)
-
-    def run(self, params: Dict[str, Any]) -> None:
-        """
-        Run adjacent correction on all scenes in the output directory.
-
-        Args:
-            params: Dictionary containing processing parameters
-        """
-        # Set up input and output paths
-        base_path = os.path.join(params['output_dir'], 'atmcor')
-        params['output_dir_adjcorr'] = os.path.join(params['output_dir'], 'adjcorr')
-        satwutils.create_dir(params['output_dir_adjcorr'])
-
-        # Get input scenes based on satellite type
-        input_paths = self._get_input_paths(params, base_path)
-
-        for scene_path in input_paths:
-            scene_name = self._get_scene_name(params, scene_path)
-            output_path = os.path.join(params['output_dir_adjcorr'], os.path.basename(scene_name))
-
-            if os.path.exists(output_path):
-                print(f"Skipping {output_path}, already exists.")
-                continue
-
-            satwutils.create_dir(output_path)
-            self.apply_adjcorr(scene_name, output_path, params)
 
     def _get_input_paths(self, params: Dict[str, Any], base_path: str) -> List[str]:
         """Get list of input scene paths based on satellite type."""

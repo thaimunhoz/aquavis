@@ -9,7 +9,7 @@ from .visualization import plot_images as visualization
 from src.satwater.atmcor_gee import atm6s_gee as atmcor_gee
 from src.satwater.glint_correction.fresglint import FresGLINT
 from src.satwater.water_mask.WaterMaskClass import WaterMaskClass
-from src.satwater.adjacent_correction.adj_corr import AdjCorrClass
+from src.satwater.adjacent_correction.adjcorr_orch import AdjCorrOrchestrator
 from .aquavis_product_generator import generate_aquavis as aquavis
 
 class SatWater(object):
@@ -81,7 +81,7 @@ class SatWater(object):
         Perform adjacent correction using the 6S model.
         """
 
-        adjcorr = AdjCorrClass()
+        adjcorr = AdjCorrOrchestrator()
         adjcorr.run(self.params)
         print("Adjacent correction completed successfully.")
 
