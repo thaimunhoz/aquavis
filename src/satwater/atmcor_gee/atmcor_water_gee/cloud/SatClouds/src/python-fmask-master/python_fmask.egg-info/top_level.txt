@@ -1,2 +1,0 @@
-fmask
-fmask/cmdline

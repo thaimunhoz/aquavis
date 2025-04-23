@@ -8,7 +8,7 @@ select_sat = 'sentinel'
 period = ('20230101', '20231231')
 main_folder = '/ddnlus/scratch/r3693/hls_water/sentinel_water'
 output_dir = '/ddnlus/scratch/r3693/hls_water/HLS_DATASET/sentinel'
-sentinel_tile_mapping = pd.read_csv('/ddnlus/r3693/hls_water/scripts/hls_water/src/satwater/auxfiles/tiles/sentinel_landsat_intersections.csv')
+sentinel_tile_mapping = pd.read_csv('/ddnlus/r3693/hls_water/scripts/hls_water/src/processors_calls/auxfiles/tiles/sentinel_landsat_intersections.csv')
 
 tiles = os.listdir(main_folder)
 
@@ -92,4 +92,4 @@ for tile in tiles:
 
     print(f"Found {len(all_imgs)} images for tile {tile}")
 
-paths_table.to_csv('/ddnlus/r3693/hls_water/scripts/hls_water/src/satwater/auxfiles/tiles/paths_sentinel_toa.txt', index=False)
+paths_table.to_csv('/ddnlus/r3693/hls_water/scripts/hls_water/src/processors_calls/auxfiles/tiles/paths_sentinel_toa.txt', index=False)
