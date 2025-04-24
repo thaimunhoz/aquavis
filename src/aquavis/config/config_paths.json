@@ -1,10 +1,12 @@
 {
     "tiles_sentinel": "C:/Users/tml411/Documents/Python Scripts/hls_water/src/satwater/auxfiles/tiles/MGRS_tiles.shp",
     "tiles_landsat": "C:/Users/tml411/Documents/Python Scripts/hls_water/src/satwater/auxfiles/tiles/ms_landsat.shp",
-    "sentinel_input_dir": "Z:/guser/tml/mypapers/HLS_package_paper/sentinel_toa",
+    "sentinel_input_dir": "Z:/dbcenter/images/sentinel/scenes/level_toa",
     "landsat_input_dir": "Z:/dbcenter/images/landsat/scenes/level_toa",
     "sentinel_landsat_intersection": "C:/Users/tml411/Documents/Python Scripts/hls_water/src/satwater/auxfiles/tiles/sentinel_landsat_intersections.csv",
     "fmask_env_path": "C:/Users/tml411/AppData/Local/anaconda3/envs/fmask_env/python",
+    "sentinel_fmask_script": "C:/FMASK/SatClouds/sentinel2.py",
+    "landsat_fmask_script": "C:/FMASK/SatClouds/landsat89.py",
     "MOD08_D3_PATH": ":/dbcenter/products/atm/modis/C61/MOD08_D3",
     "MDE_PATH": ":/dbcenter/products/land/dem30m",
     "TEMP_COEF_PATH": ":/public/temp_dir",

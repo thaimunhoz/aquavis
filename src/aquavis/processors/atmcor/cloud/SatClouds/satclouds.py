@@ -13,6 +13,7 @@ and quality flag file (Sentinel-3/OLCI). To run this package are requested:
 
 import subprocess
 import warnings
+from src.aquavis.config.config import SatWaterConfig
 
 class Satcloud:
 
@@ -23,12 +24,14 @@ class Satcloud:
         self.dest = dest # directory with images (*.tifF).
         self.fmask_env = fmask_env
 
+        config = SatWaterConfig()._load_paths()
+
         self.SENTINEL3 = 'OLCI_S3'
         self.SENTINEL2 = 'MSI_S2'
         self.LANDSAT89 = 'OLI_L8/9'
         self.ENVNAME_FMASK = 'fmask_env' # conda environment name
-        self.SCRIPTS2 = r'C:\FMASK\SatClouds\sentinel2.py' # script path
-        self.SCRIPTL89 = r'C:\FMASK\SatClouds\landsat89.py' # script path
+        self.SCRIPTS2 = config["sentinel_fmask_script"] # script path
+        self.SCRIPTL89 = config["landsat_fmask_script"] # script path
 
     def run(self):
 
