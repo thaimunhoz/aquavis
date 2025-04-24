@@ -11,16 +11,16 @@ AQUAVis is a robust and systematic pipeline designed to harmonize OLI (Operation
 ## Product description
 The final AQUAVis product follows a structured naming convention:
 ```
-AQUAVis_T<sentinel_tile_name>YYYYMMDDTHHMMSS<product_specification>_<band>_v1.0
+AQUAVis_T<tile_name>YYYYMMDDTHHMMSS<satellite_source>_<band>_v1.0
 ```
 Where:
-- **<sentinel_tile_name>** corresponds to the MGRS tile, following the Sentinel-2 A/B naming convention.
+- **<tile_name>** corresponds to the MGRS tile, following the Sentinel-2 A/B naming convention.
 
 - **YYYYMMDDTHHMMSS** represents the date and time of image acquisition. When multiple overlapping Landsat-8/9 and Sentinel-2 scenes are acquired on the same day, the acquisition hour-time is used to distinguish them.
 
-- **<product_specification>** is defined as either L30 or S30. L30 products are derived from Landsat-8/9 data, resampled, and gridded to match the reference images and MGRS grid used for S30. S30 products originate from Sentinel-2A/B imagery, resampled to 30 m spatial resolution, and spectrally adjusted to align with the OLI spectral bands.
+- **<satellite_source>** is defined as either L30 or S30. L30 products are derived from Landsat-8/9 data, resampled, and gridded to match the reference images and MGRS grid used for S30. S30 products originate from Sentinel-2A/B imagery, resampled to 30 m spatial resolution, and spectrally adjusted to align with the OLI spectral bands.
 
-- **<band>** represents the spectral band, following the band name and central wavelength of the OLI Relative Spectral Response (RSR): B2 (Blue, 483 nm), B3 (Green, 561 nm), B4 (Red, 655), B5 (NIR, 865 nm). 
+- **<band_>** represents the spectral band, following the band name and central wavelength of the OLI Relative Spectral Response (RSR): B2 (Blue, 483 nm), B3 (Green, 561 nm), B4 (Red, 655), B5 (NIR, 865 nm). 
 
 ## Dependencies management and package installation
 
@@ -47,3 +47,5 @@ The package requires specific input parameters to run. Below is a list of requir
   *- end_date*: The ending date for analysis (format: YYYYMMDD).
 
   *- output_directory*: Directory where the processed outputs will be saved.
+
+  *- output_type*: Surface reflecante or Remote Sensing Reflectance (rho or rrs).
